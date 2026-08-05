@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MyMath — הרשמה לתוכנית הלימודים</title>
+<title>MyTheMatix — הרשמה לתוכנית הלימודים</title>
 <base target="_top">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -644,7 +644,7 @@
 
 <header class="hero">
   <div class="container">
-    <span class="logo"><span class="logo-mark">M</span>MyMath</span>
+    <span class="logo"><span class="logo-mark">M</span>MyTheMatix</span>
 
     <div class="hero-content">
       <span class="eyebrow">שנת הלימודים תשפ״ז · 26–27</span>
@@ -816,8 +816,8 @@
                 <div class="field-error" id="err-student_phone"></div>
               </div>
               <div class="field">
-                <label for="student_email">כתובת דוא״ל<span class="required-mark">*</span></label>
-                <input type="email" id="student_email" name="student_email" required maxlength="120" autocomplete="email">
+                <label for="student_email">כתובת דוא״ל (לא חובה)</label>
+                <input type="email" id="student_email" name="student_email" maxlength="120" autocomplete="email">
                 <div class="field-error" id="err-student_email"></div>
               </div>
             </div>
@@ -924,7 +924,7 @@
           <div class="submit-row">
             <div class="form-feedback error" id="form-error" role="alert" aria-live="assertive"></div>
             <p class="privacy-note">
-              הפרטים שתמלאו ישמשו את MyMath לצורך רישום התלמיד לתוכנית וליצירת קשר בנוגע להרשמה בלבד,
+              הפרטים שתמלאו ישמשו את MyTheMatix לצורך רישום התלמיד לתוכנית וליצירת קשר בנוגע להרשמה בלבד,
               ולא יועברו לצד שלישי.
             </p>
             <button type="submit" class="btn btn-primary" id="submit-btn">
@@ -948,7 +948,7 @@
 
 <footer>
   <div class="container">
-    &copy; <span id="footer-year"></span> MyMath — כל הזכויות שמורות.
+    &copy; <span id="footer-year"></span> MyTheMatix — כל הזכויות שמורות.
   </div>
 </footer>
 
@@ -958,10 +958,9 @@
 
   var CONFIG = {
     contact: {
-      address: '[להשלמה]',
-      phone: '[להשלמה]',
-      email: '[להשלמה]',
-      instagram: '[להשלמה]'
+      address: 'הרי יהודה 54',
+      phone: '052-454-9680',
+      email: 'ohadmath12@gmail.com'
     }
   };
 
@@ -972,8 +971,7 @@
     var items = [
       { icon: 'icon-map-pin', label: 'כתובת', value: CONFIG.contact.address },
       { icon: 'icon-phone', label: 'טלפון', value: CONFIG.contact.phone },
-      { icon: 'icon-mail', label: 'דוא״ל', value: CONFIG.contact.email },
-      { icon: 'icon-at-sign', label: 'Instagram', value: CONFIG.contact.instagram }
+      { icon: 'icon-mail', label: 'דוא״ל', value: CONFIG.contact.email }
     ];
 
     items.forEach(function (item) {
@@ -1133,7 +1131,7 @@
   function validateForm() {
     var valid = true;
     var textFields = [
-      'student_first_name', 'student_last_name', 'student_id', 'student_phone', 'student_email',
+      'student_first_name', 'student_last_name', 'student_id', 'student_phone',
       'school_name', 'class_name', 'units', 'parent_name', 'parent_email'
     ];
 

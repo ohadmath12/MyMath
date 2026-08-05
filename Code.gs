@@ -1,5 +1,5 @@
 /**
- * MyMath — Registration Web App
+ * MyTheMatix — Registration Web App
  * Server-side logic (Google Apps Script).
  */
 
@@ -30,7 +30,6 @@ var REQUIRED_FIELDS_ = [
   'student_last_name',
   'student_id',
   'student_phone',
-  'student_email',
   'school_name',
   'class_name',
   'is_science',
@@ -65,7 +64,7 @@ var MAX_SIGNATURE_DATA_URL_LENGTH_ = 2000000; // ~2MB base64 safety cap
  */
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('MyMath — הרשמה')
+    .setTitle('MyTheMatix — הרשמה')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
