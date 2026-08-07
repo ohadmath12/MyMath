@@ -1,0 +1,71 @@
+name: Deploy to Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Code.gs'
+      - 'Index.html'
+      - 'appsscript.json'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# Never let two deploys interleave: `clasp push` then `clasp deploy` is two
+# non-atomic steps, so overlapping runs could publish a half-updated mix.
+# cancel-in-progress stays false — killing a run *between* push and deploy
+# would leave the project pushed but not published.
+concurrency:
+  group: apps-script-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a breaking clasp release can't silently change how the live
+  # site gets published. Bump deliberately.
+  CLASP_VERSION: '3.3.0'
+  # The live "/exec" web app deployment (see CLAUDE.md). An identifier, not a
+  # credential. Reusing it keeps the public URL stable.
+  DEPLOYMENT_ID: AKfycbxe9SCJRyQAxbJV2bPN6ZiVwykl8xB1AYtgsv78jobOwj3y8mCedUaV8bvtFIvNwAaCfQ
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Lets you attach a required reviewer in repo Settings → Environments,
+    # which is the only review gate between a push to main and the live site.
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install clasp
+        run: npm install -g "@google/clasp@${CLASP_VERSION}" --no-fund --no-audit --loglevel=error
+
+      - name: Restore clasp credentials
+        env:
+          CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
+        # printf '%s', not echo: echo mangles backslash escapes in the JSON.
+        # The secret goes via env rather than ${{ }} inlined into the script,
+        # so it never becomes part of the command line.
+        run: |
+          printf '%s' "$CLASP_CREDENTIALS" > ~/.clasprc.json
+          chmod 600 ~/.clasprc.json
+
+      - name: Push source to Apps Script
+        # --force skips the "manifest changed" prompt, which would otherwise
+        # hang the runner waiting on stdin.
+        run: clasp push --force
+
+      - name: Publish to the live web app
+        # Tags the deployment with the commit it came from, so the version
+        # list in the Apps Script editor is traceable back to git.
+        run: |
+          clasp deploy \
+            --deploymentId "$DEPLOYMENT_ID" \
+            --description "ci ${GITHUB_SHA::7} $(date -u +%Y-%m-%dT%H:%MZ)"
