@@ -23,11 +23,17 @@ credential every visitor could read. Apps Script holds that credential and
 account could not replace it: service accounts have no storage quota and cannot
 own files in a consumer Drive.
 
-Apps Script no longer *serves* anything. It used to, and that was the source of
+Apps Script no longer serves the form. It used to, and that was the source of
 a long tail of bugs: it wrapped the page in a cross-origin sandbox iframe on
 `script.google.com`, which broke in-page anchors, made the favicon unreachable,
 made `og:` tags impossible, and was the prime suspect for the page failing to
 render on iOS. See `ISSUES.md`.
+
+The one thing `doGet` still returns is a redirect stub pointing at `SITE_URL_`,
+kept because the `/exec` link was already handed out and must not dead-end. It
+redirects via `window.top` rather than a meta refresh on purpose — a meta
+refresh would reload the real site *inside* that same sandbox iframe, restoring
+every bug above.
 
 ## Layout
 
@@ -40,7 +46,8 @@ public/                 ← everything GitHub Pages serves, verbatim
   assets/
     logo.png            also serves as the favicon
     fonts/heebo-{hebrew,latin}.woff2
-Code.gs                 doPost + saveRegistration and helpers
+Code.gs                 doPost + saveRegistration and helpers, plus a doGet
+                        that only redirects the old /exec URL to the site
 appsscript.json         manifest (V8, executes as deployer, ANYONE_ANONYMOUS)
 ```
 

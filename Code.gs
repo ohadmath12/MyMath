@@ -59,14 +59,45 @@ var FIELD_MAX_LENGTHS_ = {
 var SCHEMA_VERSION_ = 1;
 var MAX_SIGNATURE_DATA_URL_LENGTH_ = 2000000; // ~2MB base64 safety cap
 
+// Where the page actually lives now. Hard-coded rather than a Script Property
+// on purpose: an unset property would leave the old link dead, and this mirrors
+// ENDPOINT in public/app.js, which hard-codes the URL in the other direction.
+var SITE_URL_ = 'https://ohadmath12.github.io/MyMath/';
+
 /**
- * Serves the registration page.
+ * Bounces the old /exec URL to the GitHub Pages site.
+ *
+ * This endpoint no longer serves the form — Index.html is gone from the repo
+ * and from .claspignore, so there is nothing here to render. It stays only
+ * because the /exec link was handed out (WhatsApp, etc.) and must not dead-end.
+ *
+ * The redirect is top-level (window.top), not a meta refresh: Apps Script runs
+ * this inside a cross-origin iframe on script.google.com, and a meta refresh
+ * would load the real site *inside that iframe* — which is precisely the broken
+ * state this migration removed (see ISSUES.md). Better no redirect than that
+ * one, so if the script is blocked the user gets a plain Hebrew link with
+ * target="_top" instead.
+ *
+ * @return {GoogleAppsScript.HTML.HtmlOutput}
  */
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('MyTheMatix — הרשמה')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  var html =
+    '<!DOCTYPE html>' +
+    '<meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<style>' +
+    'body{margin:0;padding:2rem 1.25rem;font-family:system-ui,Arial,sans-serif;' +
+    'text-align:center;color:#1f2937;line-height:1.7}' +
+    'a{color:#2563eb}' +
+    '</style>' +
+    '<div dir="rtl">' +
+    '<p>דף ההרשמה עבר לכתובת חדשה.</p>' +
+    '<p><a href="' + SITE_URL_ + '" target="_top">מעבר לדף ההרשמה</a></p>' +
+    '</div>' +
+    '<script>window.top.location.href = ' + JSON.stringify(SITE_URL_) + ';<\/script>';
+
+  return HtmlService.createHtmlOutput(html)
+    .setTitle('MyTheMatix — הרשמה');
 }
 
 /**
