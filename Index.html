@@ -38,8 +38,14 @@
     font-family: 'Heebo', 'Segoe UI', Tahoma, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     scroll-behavior: smooth;
-    overflow-x: hidden;
   }
+
+  /* Do not add `overflow-x: hidden` here. Per CSS spec, once one axis is not
+     `visible` the other computes from `visible` to `auto`, which turns <body>
+     into a scroll container. That nested scroller cut off smooth scrollIntoView
+     part-way, and a scrollable <body> inside the Apps Script sandbox iframe is
+     poorly handled by WebKit. Clip overflow on the offending element instead —
+     `.hero` already does this for its blurred ::before/::after decorations. */
 
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
@@ -521,15 +527,22 @@
     font-size: 0.88rem;
   }
 
-  /* Honeypot: visually hidden but present in the DOM/tab order excluded */
+  /* Honeypot: visually hidden but present in the DOM/tab order excluded.
+     Deliberately NOT offset with `left: -9999px` — the page is dir="rtl", so an
+     element pushed off the inline start edge creates ~10,000px of *scrollable*
+     horizontal overflow rather than being harmlessly clipped. Clipping in place
+     hides it with no effect on the scroll box. */
   .visually-hidden {
     position: absolute;
     width: 1px;
     height: 1px;
+    margin: -1px;
+    padding: 0;
+    border: 0;
     overflow: hidden;
     clip: rect(0 0 0 0);
+    clip-path: inset(50%);
     white-space: nowrap;
-    left: -9999px;
   }
 
   /* ---------- Submit area ---------- */
@@ -981,6 +994,28 @@
   }
 
   renderContact();
+
+  /* ---------------- In-page navigation ----------------
+     Apps Script injects this document into a cross-origin sandbox iframe via
+     postMessage, so its URL (.../userCodeAppPanel) serves no content on its
+     own. A plain href="#id" is therefore a real navigation, not a scroll: the
+     browser reloads the bare sandbox shell, the injection never re-runs, and
+     the user lands on a blank page. Scroll by hand instead and swallow the
+     navigation. The href is kept in the markup for accessibility. */
+  var hashLinks = document.querySelectorAll('a[href^="#"]');
+
+  Array.prototype.forEach.call(hashLinks, function (link) {
+    link.addEventListener('click', function (evt) {
+      var targetId = link.getAttribute('href').slice(1);
+      if (!targetId) return;
+
+      var target = document.getElementById(targetId);
+      if (!target) return;
+
+      evt.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
 
   /* ---------------- Signature pad ---------------- */
   var canvas = document.getElementById('signature-pad');
