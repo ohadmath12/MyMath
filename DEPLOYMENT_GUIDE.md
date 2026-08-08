@@ -1,5 +1,10 @@
 # MyTheMatix — Deployment Guide (Step-by-Step, No Tech Background Needed)
 
+> **Partly outdated.** Written when Apps Script also *served* the page.
+> The site now lives on GitHub Pages and Apps Script only saves data —
+> see `CLAUDE.md` for the current architecture and both pipelines. The
+> Apps Script / clasp material below is still accurate.
+
 This guide walks you through turning the 3 code files in this folder
 (`Code.gs`, `Index.html`, `appsscript.json`) into a real, working website
 that saves registrations to Google Sheets and Google Drive.

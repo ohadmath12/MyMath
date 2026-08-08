@@ -1,5 +1,10 @@
 # Automating Deployment — Options & Recommendation
 
+> **Partly outdated.** Written when Apps Script also *served* the page.
+> The site now lives on GitHub Pages and Apps Script only saves data —
+> see `CLAUDE.md` for the current architecture and both pipelines. The
+> Apps Script / clasp material below is still accurate.
+
 Right now, publishing an update means manually copy-pasting `Code.gs`,
 `Index.html`, and `appsscript.json` into the Apps Script web editor and
 clicking through **Deploy → Manage deployments → New version** (see
