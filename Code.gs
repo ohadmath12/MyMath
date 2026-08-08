@@ -70,7 +70,34 @@ function doGet() {
 }
 
 /**
- * Main entry point called from the client via google.script.run.
+ * HTTP entry point for the static site (GitHub Pages), which posts the
+ * registration as a JSON body. This is a thin transport wrapper only — all
+ * validation and persistence stays in saveRegistration.
+ *
+ * The client must send Content-Type: text/plain so the browser treats the
+ * request as CORS-simple. Apps Script has no doOptions, so an actual preflight
+ * would be answered with 405 and the submission would never arrive.
+ *
+ * @param {GoogleAppsScript.Events.DoPost} e
+ * @return {GoogleAppsScript.Content.TextOutput}
+ */
+function doPost(e) {
+  var result;
+
+  try {
+    result = saveRegistration(JSON.parse(e.postData.contents));
+  } catch (err) {
+    // saveRegistration only ever throws the generic, user-facing Hebrew
+    // strings defined in this file, so echoing the message leaks nothing.
+    result = { ok: false, error: err.message };
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
  * Validates, normalizes, and persists a new registration.
  * @param {Object} payload
  * @return {{ok: boolean, registrationId: string}}
