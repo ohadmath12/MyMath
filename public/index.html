@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MyTheMatix — הרשמה לתוכנית הלימודים</title>
+<meta name="description" content="סביבת למידה תומכת וממוקדת, המשלבת הסבר, תרגול ומעקב צמוד אחרי ההתקדמות — כדי שכל תלמיד יגיע לבחינה עם ביטחון בעצמו.">
+<link rel="icon" type="image/png" href="./assets/logo.png">
+
+<!-- og:* must carry absolute URLs — crawlers do not resolve relative ones.
+     These were impossible under Apps Script, where the outer wrapper owned
+     <head>; the WhatsApp link preview is the whole point of having them. -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ohadmath12.github.io/MyMath/">
+<meta property="og:title" content="MyTheMatix — הרשמה לתוכנית הלימודים">
+<meta property="og:description" content="סביבת למידה תומכת וממוקדת, המשלבת הסבר, תרגול ומעקב צמוד אחרי ההתקדמות — כדי שכל תלמיד יגיע לבחינה עם ביטחון בעצמו.">
+<meta property="og:image" content="https://ohadmath12.github.io/MyMath/assets/logo.png">
+<meta property="og:locale" content="he_IL">
+<meta name="twitter:card" content="summary">
+
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+
+<!-- Icon sprite: 17 lucide symbols, inlined. Replaces a 97 KB render-blocking
+     stylesheet fetched from a CDN we do not control. -->
+<svg xmlns="http://www.w3.org/2000/svg" class="icon-sprite" aria-hidden="true">
+  <symbol id="icon-calendar-clock" viewBox="0 0 24 24">
+    <path d="M16 14v2.2l1.6 1" />
+    <path d="M16 2v3" />
+    <path d="M21 7.338V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2h2.338" />
+    <path d="M3 9h5.859" />
+    <path d="M8 2v3" />
+    <circle cx="16" cy="16" r="6" />
+  </symbol>
+  <symbol id="icon-calendar-range" viewBox="0 0 24 24">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M16 2v3" />
+    <path d="M3 9h18" />
+    <path d="M8 2v3" />
+    <path d="M17 13h-6" />
+    <path d="M13 17H7" />
+    <path d="M7 13h.01" />
+    <path d="M17 17h.01" />
+  </symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24">
+    <path d="M20 6 9 17l-5-5" />
+  </symbol>
+  <symbol id="icon-clock" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </symbol>
+  <symbol id="icon-graduation-cap" viewBox="0 0 24 24">
+    <path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" />
+    <path d="M22 10v6" />
+    <path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" />
+  </symbol>
+  <symbol id="icon-heart-handshake" viewBox="0 0 24 24">
+    <path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762" />
+  </symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </symbol>
+  <symbol id="icon-life-buoy" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" />
+    <path d="m4.93 4.93 4.24 4.24" />
+    <path d="m14.83 9.17 4.24-4.24" />
+    <path d="m14.83 14.83 4.24 4.24" />
+    <path d="m9.17 14.83-4.24 4.24" />
+    <circle cx="12" cy="12" r="4" />
+  </symbol>
+  <symbol id="icon-mail" viewBox="0 0 24 24">
+    <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" />
+    <rect x="2" y="4" width="20" height="16" rx="2" />
+  </symbol>
+  <symbol id="icon-map-pin" viewBox="0 0 24 24">
+    <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" />
+    <circle cx="12" cy="10" r="3" />
+  </symbol>
+  <symbol id="icon-notebook-pen" viewBox="0 0 24 24">
+    <path d="M13.4 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7.4" />
+    <path d="M2 6h4" />
+    <path d="M2 10h4" />
+    <path d="M2 14h4" />
+    <path d="M2 18h4" />
+    <path d="M21.378 5.626a1 1 0 1 0-3.004-3.004l-5.01 5.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z" />
+  </symbol>
+  <symbol id="icon-pen-line" viewBox="0 0 24 24">
+    <path d="M13 21h8" />
+    <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+  </symbol>
+  <symbol id="icon-phone" viewBox="0 0 24 24">
+    <path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" />
+  </symbol>
+  <symbol id="icon-send" viewBox="0 0 24 24">
+    <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" />
+    <path d="m21.854 2.147-10.94 10.939" />
+  </symbol>
+  <symbol id="icon-target" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10" />
+    <circle cx="12" cy="12" r="6" />
+    <circle cx="12" cy="12" r="2" />
+  </symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24">
+    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+    <circle cx="12" cy="7" r="4" />
+  </symbol>
+  <symbol id="icon-users" viewBox="0 0 24 24">
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <path d="M16 3.128a4 4 0 0 1 0 7.744" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <circle cx="9" cy="7" r="4" />
+  </symbol>
+</svg>
+
+<div class="hero-grid" aria-hidden="true"></div>
+
+<header class="hero">
+  <div class="container">
+    <span class="logo"><img class="logo-mark" src="./assets/logo.png" alt="MyTheMatix"></span>
+
+    <div class="hero-content">
+      <span class="eyebrow">שנת הלימודים תשפ״ז · 26–27</span>
+      <h1>תוכנית מתמטיקה אישית להצלחה בבית הספר</h1>
+      <p class="hero-lead">
+        סביבת למידה תומכת וממוקדת, המשלבת הסבר, תרגול ומעקב צמוד אחרי ההתקדמות —
+        כדי שכל תלמיד יגיע לבחינה עם ביטחון בעצמו.
+      </p>
+      <a href="#registration-section" class="btn btn-primary">
+        <svg class="icon" aria-hidden="true"><use href="#icon-pen-line"/></svg>
+        למעבר להרשמה
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <section id="program" aria-labelledby="program-heading">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">התוכנית שלנו</span>
+        <h2 id="program-heading">מה כולל המסלול</h2>
+        <p>מבנה למידה קבוע ועקבי, שנבנה כדי לתת מענה אמיתי לצרכים של תלמיד תיכון.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-clock"/></svg></div>
+          <h3>שיעור שבועי קבוע</h3>
+          <p>שיעור אישי בן 50 דקות בכל שבוע, המשלב הסבר ממוקד יחד עם תרגול מודרך.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-notebook-pen"/></svg></div>
+          <h3>תיעוד השיעורים</h3>
+          <p>סיכום וריכוז של כל שיעור, כדי לאפשר חזרה נוחה על החומר בכל שלב.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-life-buoy"/></svg></div>
+          <h3>תמיכה בשיעורי בית</h3>
+          <p>ליווי נקודתי בזמן תרגול שיעורי הבית, כדי לא להישאר תקועים בבית לבד.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-target"/></svg></div>
+          <h3>מרתוני תרגול לפני מבחנים</h3>
+          <p>מפגשי תרגול ממוקדים בתקופה שלפני בחינות, לחיזוק הביטחון והשליטה בחומר.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-calendar-clock"/></svg></div>
+          <h3>שעת קבלה שבועית</h3>
+          <p>שעה קבועה בשבוע העומדת לרשות התלמידים לשאלות ותמיכה בשיעורי הבית.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="payment" aria-labelledby="payment-heading">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">תשלום</span>
+        <h2 id="payment-heading">פרטי התוכנית והתשלום</h2>
+      </div>
+
+      <div class="payment-card">
+        <ul class="payment-meta">
+          <li><svg class="icon" aria-hidden="true"><use href="#icon-calendar-range"/></svg> תקופת הפעילות: 1.9.2026 – 30.6.2027</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#icon-users"/></svg> שיעור שבועי אישי בהתאמה לרמת התלמיד</li>
+          <li><svg class="icon" aria-hidden="true"><use href="#icon-info"/></svg> אופן התשלום ומועד החיוב החודשי ייקבעו בתיאום מול המשפחה</li>
+        </ul>
+        <div>
+          <div class="payment-price">650 ₪<small> / לחודש</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="terms" aria-labelledby="terms-heading">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">תקנון</span>
+        <h2 id="terms-heading">תקנון התוכנית</h2>
+        <p>נא לקרוא את הסעיפים הבאים בעיון לפני החתימה.</p>
+      </div>
+
+      <div class="terms-list">
+        <details class="term-item">
+          <summary>הגעה בזמן וציוד נדרש</summary>
+          <p>יש להגיע לשיעור בזמן ועם כל הציוד הדרוש (מחברת, כלי כתיבה ומחשבון), כדי לנצל את מלוא זמן השיעור.</p>
+        </details>
+        <details class="term-item">
+          <summary>שימוש בטלפון נייד</summary>
+          <p>יש להשתיק את הטלפון הנייד במהלך השיעור, כדי לשמור על ריכוז מלא בזמן הלמידה.</p>
+        </details>
+        <details class="term-item">
+          <summary>אופן חישוב המנוי החודשי</summary>
+          <p>עלות המנוי החודשי מחושבת לפי ממוצע של ארבעה שיעורים בחודש, ואינה משתנה בהתאם למספר השבועות בפועל בכל חודש קלנדרי.</p>
+        </details>
+        <details class="term-item">
+          <summary>היעדרויות והשלמות</summary>
+          <p>היעדרות מתוכננת יש לתאם מראש. השלמת שיעור שהוחסר תתואם בהתאם לזמינות, ואינה מובטחת באופן אוטומטי.</p>
+        </details>
+        <details class="term-item">
+          <summary>הודעה מוקדמת על ביטול</summary>
+          <p>ביטול השתתפות בתוכנית מחייב הודעה מוקדמת, כדי לאפשר תיאום מסודר של סיום ההתקשרות.</p>
+        </details>
+        <details class="term-item">
+          <summary>חגים ומועדים</summary>
+          <p>בתקופות חגים ומועדים לא יתקיימו שיעורים, וללוח הזמנים השנתי ייתכנו התאמות בהתאם ללוח החגים.</p>
+        </details>
+        <details class="term-item">
+          <summary>מעבר ללמידה מרחוק</summary>
+          <p>במקרה הצורך, כגון מצב חירום, תתקיים אפשרות למעבר זמני ללמידה מרחוק, כדי לשמור על רצף הלימודים.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact" aria-labelledby="contact-heading">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">יצירת קשר</span>
+        <h2 id="contact-heading">פרטי התקשרות</h2>
+      </div>
+
+      <div class="contact-grid" id="contact-grid">
+        <!-- Populated by CONFIG.contact in the script below -->
+      </div>
+    </div>
+  </section>
+
+  <section id="registration-section" aria-labelledby="registration-heading">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">הרשמה</span>
+        <h2 id="registration-heading">טופס הרשמה לתוכנית</h2>
+        <p>נא למלא את כל הפרטים ולחתום בסוף הטופס.</p>
+      </div>
+
+      <div class="form-card" id="form-card">
+        <form id="registration-form" novalidate>
+
+          <!-- Honeypot field (hidden from real users) -->
+          <div class="visually-hidden" aria-hidden="true">
+            <label for="hp-field">אל תמלאו שדה זה</label>
+            <input type="text" id="hp-field" name="honeypot" tabindex="-1" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <h3 class="form-group-title"><svg class="icon" aria-hidden="true"><use href="#icon-user"/></svg> פרטי התלמיד</h3>
+            <div class="field-grid">
+              <div class="field">
+                <label for="student_first_name">שם פרטי<span class="required-mark">*</span></label>
+                <input type="text" id="student_first_name" name="student_first_name" required maxlength="60" autocomplete="given-name">
+                <div class="field-error" id="err-student_first_name"></div>
+              </div>
+              <div class="field">
+                <label for="student_last_name">שם משפחה<span class="required-mark">*</span></label>
+                <input type="text" id="student_last_name" name="student_last_name" required maxlength="60" autocomplete="family-name">
+                <div class="field-error" id="err-student_last_name"></div>
+              </div>
+              <div class="field">
+                <label for="student_id">תעודת זהות<span class="required-mark">*</span></label>
+                <input type="text" id="student_id" name="student_id" required maxlength="20" inputmode="numeric" autocomplete="off">
+                <div class="field-error" id="err-student_id"></div>
+              </div>
+              <div class="field">
+                <label for="student_phone">טלפון נייד<span class="required-mark">*</span></label>
+                <input type="tel" id="student_phone" name="student_phone" required maxlength="20" autocomplete="tel">
+                <div class="field-error" id="err-student_phone"></div>
+              </div>
+              <div class="field">
+                <label for="student_email">כתובת דוא״ל (לא חובה)</label>
+                <input type="email" id="student_email" name="student_email" maxlength="120" autocomplete="email">
+                <div class="field-error" id="err-student_email"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <h3 class="form-group-title"><svg class="icon" aria-hidden="true"><use href="#icon-graduation-cap"/></svg> פרטי לימודים</h3>
+            <div class="field-grid">
+              <div class="field">
+                <label for="school_name">שם בית הספר<span class="required-mark">*</span></label>
+                <select id="school_name" name="school_name" required>
+                  <option value="" disabled selected>בחרו בית ספר</option>
+                  <option value="חטיבת הביניים הראשונים, גני תקווה">חטיבת הביניים הראשונים, גני תקווה</option>
+                  <option value="תיכון מיתר, גני תקווה">תיכון מיתר, גני תקווה</option>
+                  <option value="חטיבת בן צבי, קריית אונו">חטיבת בן צבי, קריית אונו</option>
+                  <option value="תיכון בן צבי, קריית אונו">תיכון בן צבי, קריית אונו</option>
+                  <option value="חטיבת שמעון פרס, קריית אונו">חטיבת שמעון פרס, קריית אונו</option>
+                  <option value="חטיבת שז&quot;ר, קריית אונו">חטיבת שז&quot;ר, קריית אונו</option>
+                </select>
+                <div class="field-error" id="err-school_name"></div>
+              </div>
+              <div class="field">
+                <label for="class_name">כיתה<span class="required-mark">*</span></label>
+                <select id="class_name" name="class_name" required>
+                  <option value="" disabled selected>בחרו כיתה</option>
+                  <option value="ז">ז</option>
+                  <option value="ח">ח</option>
+                  <option value="ט">ט</option>
+                  <option value="י">י</option>
+                  <option value="י״א">י״א</option>
+                  <option value="י״ב">י״ב</option>
+                </select>
+                <div class="field-error" id="err-class_name"></div>
+              </div>
+              <div class="field">
+                <label for="units">הקבצה / מספר יח״ל<span class="required-mark">*</span></label>
+                <select id="units" name="units" required>
+                  <option value="" disabled selected>בחרו הקבצה / יח״ל</option>
+                  <option value="הקבצה א">הקבצה א</option>
+                  <option value="הקבצה ב">הקבצה ב</option>
+                  <option value="4 יח״ל">4 יח״ל</option>
+                  <option value="5 יח״ל">5 יח״ל</option>
+                </select>
+                <div class="field-error" id="err-units"></div>
+              </div>
+              <div class="field">
+                <label id="is_science-label">כיתה מדעית<span class="required-mark">*</span></label>
+                <div class="radio-row" role="radiogroup" aria-labelledby="is_science-label">
+                  <label class="radio-option">
+                    <input type="radio" name="is_science" value="yes" required>
+                    כן
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="is_science" value="no" required>
+                    לא
+                  </label>
+                </div>
+                <div class="field-error" id="err-is_science"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <h3 class="form-group-title"><svg class="icon" aria-hidden="true"><use href="#icon-heart-handshake"/></svg> פרטי ההורה</h3>
+            <div class="field-grid">
+              <div class="field">
+                <label id="parent_role-label">מבצע ההרשמה<span class="required-mark">*</span></label>
+                <div class="radio-row" role="radiogroup" aria-labelledby="parent_role-label">
+                  <label class="radio-option">
+                    <input type="radio" name="parent_role" value="father" required>
+                    אב
+                  </label>
+                  <label class="radio-option">
+                    <input type="radio" name="parent_role" value="mother" required>
+                    אם
+                  </label>
+                </div>
+                <div class="field-error" id="err-parent_role"></div>
+              </div>
+              <div class="field">
+                <label for="parent_name">שם ההורה<span class="required-mark">*</span></label>
+                <input type="text" id="parent_name" name="parent_name" required maxlength="80" autocomplete="name">
+                <div class="field-error" id="err-parent_name"></div>
+              </div>
+              <div class="field">
+                <label for="parent_email">כתובת דוא״ל ההורה<span class="required-mark">*</span></label>
+                <input type="email" id="parent_email" name="parent_email" required maxlength="120" autocomplete="email">
+                <div class="field-error" id="err-parent_email"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <h3 class="form-group-title"><svg class="icon" aria-hidden="true"><use href="#icon-pen-line"/></svg> חתימת ההורה<span class="required-mark">*</span></h3>
+            <div class="signature-wrap" id="signature-wrap">
+              <canvas id="signature-pad" aria-label="משטח לחתימת ההורה באמצעות עכבר או מגע"></canvas>
+            </div>
+            <div class="signature-actions">
+              <span class="signature-hint">חתמו באמצעות עכבר, עט או אצבע</span>
+              <button type="button" class="btn btn-ghost" id="clear-signature">נקו חתימה</button>
+            </div>
+            <div class="field-error" id="err-signature" role="alert"></div>
+          </div>
+
+          <div class="submit-row">
+            <div class="form-feedback error" id="form-error" role="alert" aria-live="assertive"></div>
+            <p class="privacy-note">
+              הפרטים שתמלאו ישמשו את MyTheMatix לצורך רישום התלמיד לתוכנית וליצירת קשר בנוגע להרשמה בלבד,
+              ולא יועברו לצד שלישי.
+            </p>
+            <button type="submit" class="btn btn-primary" id="submit-btn">
+              <svg class="icon" aria-hidden="true"><use href="#icon-send"/></svg>
+              <span id="submit-btn-label">שליחת הרשמה</span>
+            </button>
+          </div>
+        </form>
+
+        <div class="success-card" id="success-card" aria-live="polite">
+          <div class="success-icon" aria-hidden="true"><svg class="icon" aria-hidden="true"><use href="#icon-check"/></svg></div>
+          <h2>תודה, ההרשמה התקבלה בהצלחה</h2>
+          <p>ניצור קשר בהמשך עם פרטים נוספים לגבי תחילת התוכנית.</p>
+          <span class="success-id" id="success-id"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    &copy; <span id="footer-year"></span> MyTheMatix — כל הזכויות שמורות.
+  </div>
+</footer>
+
+<script src="./app.js"></script>
+</body>
+</html>

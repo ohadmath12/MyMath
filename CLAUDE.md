@@ -4,151 +4,212 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Google Apps Script web app ("MyTheMatix") that serves a single-page Hebrew
-(RTL) registration form for a math tutoring program, and saves submissions to
-a Google Sheet plus a Google Drive folder (signature images). There is no
-build step, package manager, or test suite — this is 3 hand-written source
-files deployed as-is into the Apps Script runtime.
+"MyTheMatix" — a single-page Hebrew (RTL) registration form for a math
+tutoring program. It is a **static site hosted on GitHub Pages**, plus a
+**save-only Google Apps Script endpoint** that persists each submission to a
+Google Sheet and writes the signature PNG to a Google Drive folder.
 
-## Source files (only these 3 are deployed)
+Live site: <https://ohadmath12.github.io/MyMath/>
 
-- `Code.gs` — server-side Apps Script (V8 runtime). Handles `doGet()` (serves
-  the page) and `saveRegistration(payload)` (validates, sanitizes, persists).
-- `Index.html` — the entire client: inline `<style>` (~line 13–634), the form
-  markup, and inline `<script>` (~line 951+) in a single IIFE. No external
-  JS/CSS dependencies, no framework — vanilla DOM APIs.
-- `appsscript.json` — manifest (V8 runtime, webapp executes as the deploying
-  user, access `ANYONE_ANONYMOUS`).
+There is no build step, package manager, or test suite — `public/` is served
+verbatim and the Apps Script file is pushed as-is into the Apps Script runtime.
 
-`.claspignore` restricts `clasp push` to exactly these 3 files — everything
-else (docs, the logo PNG) is intentionally excluded from deployment.
+### Why the split
+
+Writing to Sheets/Drive requires OAuth (an API key only ever grants public
+read), so a static page can never write there directly without embedding a
+credential every visitor could read. Apps Script holds that credential and
+**runs as the owner** — which is also why it can own Drive files. A service
+account could not replace it: service accounts have no storage quota and cannot
+own files in a consumer Drive.
+
+Apps Script no longer serves the form. It used to, and that was the source of
+a long tail of bugs: it wrapped the page in a cross-origin sandbox iframe on
+`script.google.com`, which broke in-page anchors, made the favicon unreachable,
+made `og:` tags impossible, and was the prime suspect for the page failing to
+render on iOS. See `ISSUES.md`.
+
+The one thing `doGet` still returns is a redirect stub pointing at `SITE_URL_`,
+kept because the `/exec` link was already handed out and must not dead-end. It
+redirects via `window.top` rather than a meta refresh on purpose — a meta
+refresh would reload the real site *inside* that same sandbox iframe, restoring
+every bug above.
+
+## Layout
+
+```
+public/                 ← everything GitHub Pages serves, verbatim
+  index.html            markup + inline SVG icon sprite (17 lucide symbols)
+  styles.css            @font-face + .icon rules, then the original stylesheet
+  app.js                one IIFE, vanilla DOM, ES5 (see below)
+  .nojekyll             keeps Jekyll from eating files
+  assets/
+    logo.png            also serves as the favicon
+    fonts/heebo-{hebrew,latin}.woff2
+Code.gs                 doPost + saveRegistration and helpers, plus a doGet
+                        that only redirects the old /exec URL to the site
+appsscript.json         manifest (V8, executes as deployer, ANYONE_ANONYMOUS)
+```
+
+`.claspignore` restricts `clasp push` to exactly `Code.gs` and
+`appsscript.json` — `public/` is never pushed to Apps Script.
+
+**No external runtime dependencies.** Fonts are self-hosted and icons are an
+inline sprite, deliberately: a render-blocking stylesheet on a third-party CDN
+is a failure mode we cannot control, and a hung request shows a blank page.
+Do not reintroduce a CDN `<link>`.
+
+Heebo is a **variable** font — Google serves one file per unicode-range subset
+covering the whole 100–900 axis, so the two files cover every weight the page
+uses (400/500/600/700/800).
 
 ## Deployment
 
-**Deploying to production is automatic: a push to `main` that touches
-`Code.gs`, `Index.html`, or `appsscript.json` publishes straight to the
-live public site, with no review gate in between.** Treat any such push
-as a release. `.github/workflows/deploy.yml` is the pipeline; it can
-also be run by hand from the Actions tab (`workflow_dispatch`).
+Two independent pipelines, split by path so they never both fire:
 
-Managed via `clasp` (Google's Apps Script CLI), linked to the live
-project through `.clasp.json` (contains the script ID; safe to commit, no
-secrets). The manual equivalent — useful for a one-off publish or when CI
-is broken:
+| Workflow | Fires on | Publishes |
+|---|---|---|
+| `.github/workflows/pages.yml` | `public/**` | the live site, via GitHub Pages |
+| `.github/workflows/deploy.yml` | `Code.gs`, `appsscript.json` | the Apps Script endpoint, via clasp |
+
+**Both publish straight to production on a push to `main`, with no review
+gate.** Treat any such push as a release.
+
+`pages.yml` needs no secrets — it uses the built-in `GITHUB_TOKEN` via OIDC.
+Repo settings must have Pages → Source = **GitHub Actions** (not "Deploy from a
+branch"), and the repo must stay **public** (Pages on a private repo requires
+GitHub Pro).
+
+### The Apps Script side
+
+Managed via `clasp`, linked through `.clasp.json` (script ID; safe to commit).
+The manual equivalent:
 
 ```
-clasp push --force                  # uploads Code.gs / Index.html / appsscript.json
+clasp push --force                  # uploads Code.gs / appsscript.json
 clasp deploy --deploymentId AKfycbxe9SCJRyQAxbJV2bPN6ZiVwykl8xB1AYtgsv78jobOwj3y8mCedUaV8bvtFIvNwAaCfQ
 ```
 
-Always reuse that `--deploymentId` so the public `.../exec` URL stays
-stable — a bare `clasp deploy` mints a *new* deployment and a new URL.
-`--force` on push is required in any non-interactive context: without it
-the "manifest changed" prompt blocks on stdin forever.
+Always reuse that `--deploymentId` — a bare `clasp deploy` mints a *new*
+deployment and a new URL, which would silently break the live form, since
+`ENDPOINT` in `public/app.js` is hard-coded to the current one. `--force` is
+required non-interactively: without it the "manifest changed" prompt blocks on
+stdin forever.
 
-Full step-by-step context (including the from-scratch browser-only path)
-is in `DEPLOYMENT_GUIDE.md`; the CI/CD design rationale and its
-trade-offs are in `DEPLOYMENT_AUTOMATION.md`.
+Prerequisites that live outside this repo:
 
-### Prerequisites that live outside this repo
+- The **Apps Script API must be enabled for the deploying account**
+  (`ohadmath12@gmail.com`) at `script.google.com/home/usersettings`. Account
+  level, not project level.
+- `CLASP_CREDENTIALS` holds that account's `~/.clasprc.json` from a
+  `clasp login`. clasp v3 format is `{"tokens": {"default": {…}}}`; v2's
+  `{"token": …}` will not work.
 
-- The **Apps Script API must be enabled for the deploying Google account**
-  (`ohadmath12@gmail.com`) at `script.google.com/home/usersettings`. This
-  is an account-level toggle, not a project setting.
-- The `CLASP_CREDENTIALS` repo secret holds the contents of that account's
-  `~/.clasprc.json` from a `clasp login` session. clasp v3 format is
-  `{"tokens": {"default": {…}}}` — v2's `{"token": …, "oauth2ClientSettings": …}`
-  will not work, which rules out most third-party clasp GitHub Actions.
-
-### Debugging a failed deploy
+Known trap: `clasp push` failing with **"User has not enabled the Apps Script
+API"** does *not* reliably mean the toggle is off — Google returns the same 403
+when the request is effectively unauthenticated, so a missing or wrong-account
+`CLASP_CREDENTIALS` looks identical. Check the toggle first, then the secret.
 
 ```
 gh run list --repo ohadmath12/MyMath --limit 5
 gh run view <run-id> --log-failed
+clasp deployments      # live one should read "@N - ci <sha> <timestamp>"
 ```
 
-Known trap: `clasp push` failing with **"User has not enabled the Apps
-Script API"** does *not* reliably mean the toggle is off. Google returns
-that same 403 when the request is effectively unauthenticated, so a
-missing, malformed, or wrong-account `CLASP_CREDENTIALS` secret produces
-an identical message. Verify the toggle first, then the secret.
+## Testing
 
-To confirm a deploy actually reached production (a green CI run alone
-doesn't prove it), check that the deployment version incremented and
-carries the expected commit — CI stamps every deploy `ci <short-sha> <utc>`:
+**The frontend can be exercised end-to-end locally**, which was impossible when
+Apps Script served the page. The Apps Script response carries
+`Access-Control-Allow-Origin: *`, so a form submitted from `localhost` writes a
+real row to the real Sheet:
 
 ```
-clasp deployments        # the live one should read "@N - ci <sha> <timestamp>"
+python3 -m http.server 8000 -d public
 ```
 
-### Testing
+Use a junk name so the row is recognisable, and delete it afterwards.
 
-There is no local dev server or test harness — the only way to actually
-exercise `saveRegistration` end-to-end is a real deployment (Apps Script has
-no meaningful offline emulator for `SpreadsheetApp`/`DriveApp`). Sanity-check
-HTML/CSS/client-JS changes by opening `Index.html` directly in a browser,
-but note `google.script.run` calls will not work outside a real deployment.
+There is still no offline emulator for `SpreadsheetApp`/`DriveApp`, so changes
+to `Code.gs` itself can only be exercised against a real deployment.
 
-Since the only real test is production, verify a change actually shipped by
-fetching the live page rather than trusting CI. Apps Script serves the app
-inside a sandbox iframe and escapes the markup (`\x3d`, `\\\x22`), so a
-naive `grep 'value="…"'` finds nothing — grep for the bare string instead:
+Verifying a deploy actually landed is now straightforward — the site is plain
+HTML, with none of the `\x3d` escaping Apps Script used to apply:
 
 ```
-curl -sL <the /exec URL> | grep -c 'some new string you added'
+curl -sI https://ohadmath12.github.io/MyMath/
+curl -s  https://ohadmath12.github.io/MyMath/ | grep -c 'og:image'
 ```
 
 ## Server config (Script Properties, not in code)
 
 `saveRegistration` reads three values from
-`PropertiesService.getScriptProperties()` at runtime — these live in the
-Apps Script project settings, not in this repo:
+`PropertiesService.getScriptProperties()` at runtime, set in the Apps Script
+project settings:
 
 - `SPREADSHEET_ID` — target spreadsheet
-- `SHEET_NAME` — target tab name (defaults to `'Registrations'` if unset)
+- `SHEET_NAME` — target tab (defaults to `'Registrations'`)
 - `SIGNATURE_FOLDER_ID` — Drive folder for signature PNGs
 
-## Data flow / architecture
+## Data flow
 
-1. Client (`Index.html`) renders the form, runs a signature-pad on
-   `<canvas>` (pointer/touch drawing), and does client-side required-field
-   validation before allowing submit.
-2. On submit, it builds a `payload` object (see the field list in the
-   `submit` handler around Index.html:1194) including a base64 PNG data URL
-   for the signature, a hidden honeypot field, and calls
-   `google.script.run...saveRegistration(payload)`.
-3. Server (`Code.gs`) re-validates independently (never trusts the client):
-   - `validateRequiredFields_` checks `REQUIRED_FIELDS_` are present and that
-     `is_science`/`parent_role` are constrained to known values.
-   - Honeypot: if filled, silently returns a fake success (`buildSuccessResponse_`)
-     without persisting anything — no error is surfaced to a bot.
-   - `normalizePayload_`/`sanitizeText_` trims, strips control chars, caps
-     length per `FIELD_MAX_LENGTHS_`, and prefixes a leading `'` on values
-     starting with `=+-@` to prevent formula injection when the value lands
-     in a Sheet cell.
-   - `decodeSignature_` validates the `data:image/png;base64,` prefix and a
-     max length before decoding.
-4. A script lock (`LockService`) wraps the write so concurrent submissions
-   don't race. The signature PNG is saved to Drive first; if the subsequent
-   Sheet append fails, the just-created Drive file is trashed as a best-effort
-   rollback (Apps Script has no real cross-service transactions).
-5. `SHEET_HEADERS_` in `Code.gs` is the single source of truth for column
-   order — it must stay in sync with the header row created in the Sheet
-   during setup (see `DEPLOYMENT_GUIDE.md` Part 1).
+1. `public/index.html` renders the form and runs a signature pad on `<canvas>`
+   (pointer/touch), with client-side required-field validation before submit.
+2. On submit, `app.js` builds a `payload` (see the `submit` handler) including a
+   base64 PNG data URL, a hidden honeypot, and POSTs it to `ENDPOINT`.
+   **The request must use `Content-Type: text/plain`** — Apps Script has no
+   `doOptions`, so a CORS preflight would get a 405 and the submission would
+   never arrive. `text/plain` keeps it a CORS-simple request. Changing this to
+   `application/json` silently breaks every submission.
+3. `doPost` in `Code.gs` is a thin transport wrapper: it parses the JSON body,
+   calls `saveRegistration`, and returns JSON. All logic lives in
+   `saveRegistration`, which re-validates independently and never trusts the
+   client:
+   - `validateRequiredFields_` checks `REQUIRED_FIELDS_` and constrains
+     `is_science` / `parent_role` to known values.
+   - Honeypot: if filled, silently returns a fake success without persisting —
+     no error is surfaced to a bot.
+   - `normalizePayload_` / `sanitizeText_` trim, strip control chars, cap length
+     per `FIELD_MAX_LENGTHS_`, and prefix `'` on values starting with `=+-@` to
+     prevent formula injection in the Sheet.
+   - `decodeSignature_` validates the `data:image/png;base64,` prefix and a max
+     length before decoding.
+4. A script lock (`LockService`) wraps the write. The PNG goes to Drive first;
+   if the Sheet append then fails, the just-created Drive file is trashed as a
+   best-effort rollback (Apps Script has no cross-service transactions).
+5. `SHEET_HEADERS_` is the single source of truth for column order — it must
+   stay in sync with the Sheet's header row.
 
 ## Conventions to preserve when editing
 
-- All user-facing strings (errors, labels, button text) are Hebrew and the
-  page is `dir="rtl"` — keep new strings Hebrew and consistent in tone with
-  existing ones.
-- Server errors returned to the client are generic/user-friendly Hebrew
-  messages that never leak internal details (e.g. `'לא הצלחנו לשמור את
-  ההרשמה...'`) — keep it that way; put specifics only in
-  `exceptionLogging`/Stackdriver, not in thrown error text.
-- Any new form field added client-side needs a matching entry in
-  `REQUIRED_FIELDS_` and/or `FIELD_MAX_LENGTHS_` in `Code.gs`, and a new
-  column in `SHEET_HEADERS_` (plus the actual Sheet header row) — the three
-  must be kept in lockstep or `appendRegistration_` will misalign columns.
-- This repo is the single source of truth for the 3 source files. Don't
-  edit them in the Apps Script web editor — the next `clasp push` (manual
-  or from CI) overwrites those edits silently.
+- All user-facing strings are Hebrew and the page is `dir="rtl"` — keep new
+  strings Hebrew and consistent in tone.
+- Server errors returned to the client are generic, user-friendly Hebrew that
+  never leaks internals. Put specifics in `exceptionLogging`/Stackdriver only.
+- `app.js` is deliberately **ES5** — `.then()` callbacks, no `async`/`await`,
+  no arrow functions, no optional chaining — because the audience is on phones
+  and iOS forces every browser onto WebKit. The one modern API in use is
+  feature-detected (`crypto.randomUUID`).
+- Icons are `<svg class="icon"><use href="#icon-NAME"/></svg>`, resolved against
+  the sprite at the top of `<body>`. Sized in `em` so they inherit from the
+  parent's `font-size`. To add one, copy the symbol from `lucide-static` and
+  strip the root `<svg>` attributes (the `.icon` CSS rule supplies them).
+- Asset paths must stay **relative** (`./styles.css`). The site is served from
+  the `/MyMath/` subpath, so a leading-slash path 404s. `og:image` is the
+  exception — crawlers need it absolute.
+- Any new form field needs a matching entry in `REQUIRED_FIELDS_` and/or
+  `FIELD_MAX_LENGTHS_`, plus a new column in `SHEET_HEADERS_` *and* the real
+  Sheet header row — the three must move in lockstep or `appendRegistration_`
+  will misalign columns.
+- This repo is the single source of truth. Don't edit `Code.gs` in the Apps
+  Script web editor — the next `clasp push` overwrites it silently.
+
+## Known gaps
+
+- `client_submission_id` is generated and sent but dropped server-side, so a
+  double-tap writes two rows. Fixing it means adding a Sheet column.
+- Bot protection is the honeypot only, and `ENDPOINT` is public in client JS.
+  Turnstile could be verified server-side from `Code.gs` via `UrlFetchApp`.
+- The Sheet holds, for minors: full name, Israeli ID number, phone, email,
+  school, parent details, and a signature image. Israel's Privacy Protection Law
+  Amendment 13 took effect 14 Aug 2025 — worth confirming the Sheet and Drive
+  folder aren't link-shared, and whether the ID number is needed at all.
