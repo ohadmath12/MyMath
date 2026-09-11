@@ -56,7 +56,7 @@ var FIELD_MAX_LENGTHS_ = {
   honeypot: 200
 };
 
-var SCHEMA_VERSION_ = 1;
+var SCHEMA_VERSION_ = 2;
 var MAX_SIGNATURE_DATA_URL_LENGTH_ = 2000000; // ~2MB base64 safety cap
 
 // Where the page actually lives now. Hard-coded rather than a Script Property
@@ -230,9 +230,32 @@ function normalizePayload_(payload) {
     normalized[key] = sanitizeText_(payload[key], FIELD_MAX_LENGTHS_[key]);
   });
 
+  normalized.student_phone = normalizeIsraeliMobilePhone_(normalized.student_phone);
   normalized.signature_data_url = String(payload.signature_data_url || '');
 
   return normalized;
+}
+
+/**
+ * Normalizes an Israeli mobile number to 05XXXXXXXX while preserving it as text.
+ * Accepts local numbers with separators and +972 international notation.
+ * @param {*} value
+ * @return {string}
+ */
+function normalizeIsraeliMobilePhone_(value) {
+  var digits = String(value || '').replace(/\D/g, '');
+
+  if (/^9725\d{8}$/.test(digits)) {
+    digits = '0' + digits.substring(3);
+  } else if (/^5\d{8}$/.test(digits)) {
+    digits = '0' + digits;
+  }
+
+  if (!/^05\d{8}$/.test(digits)) {
+    throw new Error('מספר הטלפון הנייד אינו תקין.');
+  }
+
+  return digits;
 }
 
 /**
@@ -324,7 +347,11 @@ function appendRegistration_(record) {
     return record[key];
   });
 
-  sheet.appendRow(row);
+  var targetRow = sheet.getLastRow() + 1;
+  var phoneColumn = SHEET_HEADERS_.indexOf('student_phone') + 1;
+
+  sheet.getRange(targetRow, phoneColumn).setNumberFormat('@');
+  sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
 }
 
 /**

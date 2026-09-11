@@ -201,6 +201,18 @@
     return checked ? checked.value : '';
   }
 
+  function normalizeIsraeliMobilePhone(value) {
+    var digits = String(value || '').replace(/\D/g, '');
+
+    if (/^9725\d{8}$/.test(digits)) {
+      digits = '0' + digits.substring(3);
+    } else if (/^5\d{8}$/.test(digits)) {
+      digits = '0' + digits;
+    }
+
+    return /^05\d{8}$/.test(digits) ? digits : '';
+  }
+
   function validateForm() {
     var valid = true;
     var textFields = [
@@ -215,6 +227,12 @@
         valid = false;
       }
     });
+
+    var phoneField = document.getElementById('student_phone');
+    if (phoneField.value && !normalizeIsraeliMobilePhone(phoneField.value)) {
+      setFieldError('student_phone', 'יש להזין מספר נייד ישראלי תקין');
+      valid = false;
+    }
 
     if (!getRadioValue('is_science')) {
       setFieldError('is_science', 'שדה חובה');
@@ -272,7 +290,7 @@
       student_first_name: document.getElementById('student_first_name').value,
       student_last_name: document.getElementById('student_last_name').value,
       student_id: document.getElementById('student_id').value,
-      student_phone: document.getElementById('student_phone').value,
+      student_phone: normalizeIsraeliMobilePhone(document.getElementById('student_phone').value),
       student_email: document.getElementById('student_email').value,
       school_name: document.getElementById('school_name').value,
       class_name: document.getElementById('class_name').value,
