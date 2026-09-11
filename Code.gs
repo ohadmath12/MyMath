@@ -22,7 +22,11 @@ var SHEET_HEADERS_ = [
   'parent_email',
   'signature_file_id',
   'signature_file_name',
-  'source'
+  'source',
+  'crm_sync_status',
+  'crm_synced_at',
+  'crm_student_id',
+  'crm_sync_error'
 ];
 
 var REQUIRED_FIELDS_ = [
@@ -153,10 +157,12 @@ function saveRegistration(payload) {
   lock.waitLock(30000);
 
   var signatureFile = null;
+  var record = null;
+  var targetRow = null;
   try {
     signatureFile = saveSignature_(registrationId, signatureBlob);
 
-    var record = {
+    record = {
       registration_id: registrationId,
       submitted_at: new Date(),
       schema_version: SCHEMA_VERSION_,
@@ -175,10 +181,14 @@ function saveRegistration(payload) {
       parent_email: normalized.parent_email,
       signature_file_id: signatureFile.getId(),
       signature_file_name: signatureFile.getName(),
-      source: 'google_apps_script_webapp'
+      source: 'google_apps_script_webapp',
+      crm_sync_status: 'pending',
+      crm_synced_at: '',
+      crm_student_id: '',
+      crm_sync_error: ''
     };
 
-    appendRegistration_(record);
+    targetRow = appendRegistration_(record);
   } catch (err) {
     if (signatureFile) {
       try {
@@ -190,6 +200,15 @@ function saveRegistration(payload) {
     throw new Error('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');
   } finally {
     lock.releaseLock();
+  }
+
+  // The registration is already safely stored at this point. A temporary CRM
+  // outage must never make a parent submit the form again and create a duplicate.
+  try {
+    syncRegistrationToCrm_(record, targetRow);
+  } catch (syncErr) {
+    markCrmSyncError_(targetRow, syncErr);
+    console.error('CRM sync failed for registration ' + registrationId + ': ' + syncErr.message);
   }
 
   return buildSuccessResponse_(registrationId);
@@ -326,6 +345,7 @@ function saveSignature_(registrationId, blob) {
 /**
  * Appends one registration row to the Registrations sheet.
  * @param {Object} record
+ * @return {number} Added row number.
  */
 function appendRegistration_(record) {
   var props = PropertiesService.getScriptProperties();
@@ -352,6 +372,151 @@ function appendRegistration_(record) {
 
   sheet.getRange(targetRow, phoneColumn).setNumberFormat('@');
   sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
+  return targetRow;
+}
+
+/**
+ * Sends one operational registration to the CRM intake endpoint.
+ * Government ID and signature metadata are intentionally excluded.
+ * @param {Object} record
+ * @param {number} targetRow
+ */
+function syncRegistrationToCrm_(record, targetRow) {
+  var props = PropertiesService.getScriptProperties();
+  var endpoint = props.getProperty('CRM_INTAKE_URL');
+  var secret = props.getProperty('CRM_INTAKE_SECRET');
+
+  if (!endpoint || !secret) {
+    throw new Error('CRM integration is not configured');
+  }
+
+  var payload = {
+    registration_id: record.registration_id,
+    student_first_name: record.student_first_name,
+    student_last_name: record.student_last_name,
+    student_phone: record.student_phone,
+    student_email: record.student_email,
+    school_name: record.school_name,
+    class_name: record.class_name,
+    is_science: record.is_science,
+    units: record.units,
+    parent_role: record.parent_role,
+    parent_name: record.parent_name,
+    parent_email: record.parent_email
+  };
+
+  var response = UrlFetchApp.fetch(endpoint, {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { 'x-mythematix-import-secret': secret },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var responseCode = response.getResponseCode();
+  if (responseCode < 200 || responseCode >= 300) {
+    throw new Error('CRM returned HTTP ' + responseCode);
+  }
+
+  var body;
+  try {
+    body = JSON.parse(response.getContentText());
+  } catch (parseErr) {
+    throw new Error('CRM returned an invalid response');
+  }
+
+  if (!body.ok || body.registration_id !== record.registration_id || !body.student_id) {
+    throw new Error('CRM did not confirm the registration');
+  }
+
+  updateCrmSyncCells_(targetRow, 'synced', new Date(), body.student_id, '');
+}
+
+/**
+ * Stores a short, non-sensitive sync error for operational review.
+ * @param {number} targetRow
+ * @param {Error} error
+ */
+function markCrmSyncError_(targetRow, error) {
+  var safeMessage = /^CRM returned HTTP \d{3}$/.test(error.message)
+    ? error.message
+    : 'CRM sync failed';
+
+  try {
+    updateCrmSyncCells_(targetRow, 'error', '', '', safeMessage);
+  } catch (sheetErr) {
+    console.error('Could not update CRM sync status: ' + sheetErr.message);
+  }
+}
+
+/**
+ * Updates the four CRM control columns in one write.
+ * @param {number} targetRow
+ * @param {string} status
+ * @param {Date|string} syncedAt
+ * @param {string} studentId
+ * @param {string} errorMessage
+ */
+function updateCrmSyncCells_(targetRow, status, syncedAt, studentId, errorMessage) {
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = props.getProperty('SPREADSHEET_ID');
+  var sheetName = props.getProperty('SHEET_NAME') || 'Registrations';
+  var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
+  var firstControlColumn = SHEET_HEADERS_.indexOf('crm_sync_status') + 1;
+
+  if (!sheet || firstControlColumn < 1) {
+    throw new Error('CRM control columns are unavailable');
+  }
+
+  sheet.getRange(targetRow, firstControlColumn, 1, 4)
+    .setValues([[status, syncedAt, studentId, errorMessage]]);
+}
+
+/**
+ * Retries registrations that are pending, failed, or predate the sync columns.
+ * Safe to run repeatedly because registration_id is idempotent in the CRM.
+ */
+function retryPendingCrmRegistrations() {
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = props.getProperty('SPREADSHEET_ID');
+  var sheetName = props.getProperty('SHEET_NAME') || 'Registrations';
+  var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
+
+  if (!sheet || sheet.getLastRow() < 2) return;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, SHEET_HEADERS_.length).getValues();
+  var statusIndex = SHEET_HEADERS_.indexOf('crm_sync_status');
+
+  values.forEach(function (row, index) {
+    if (!row[0] || row[statusIndex] === 'synced') return;
+
+    var record = {};
+    SHEET_HEADERS_.forEach(function (header, columnIndex) {
+      record[header] = row[columnIndex];
+    });
+
+    try {
+      syncRegistrationToCrm_(record, index + 2);
+    } catch (err) {
+      markCrmSyncError_(index + 2, err);
+    }
+  });
+}
+
+/**
+ * Installs one five-minute retry trigger. Run manually once after deployment.
+ */
+function setupCrmRetryTrigger() {
+  ScriptApp.getProjectTriggers().forEach(function (trigger) {
+    if (trigger.getHandlerFunction() === 'retryPendingCrmRegistrations') {
+      ScriptApp.deleteTrigger(trigger);
+    }
+  });
+
+  ScriptApp.newTrigger('retryPendingCrmRegistrations')
+    .timeBased()
+    .everyMinutes(5)
+    .create();
 }
 
 /**
