@@ -140,12 +140,11 @@ function doPost(e) {
     if (!e || !e.postData || typeof e.postData.contents !== 'string') {
       throw new Error('Missing request body');
     }
-    var envelope = JSON.parse(e.postData.contents);
-    var expectedSecret = PropertiesService.getScriptProperties().getProperty('API_GATEWAY_SECRET');
-    if (!expectedSecret || !envelope || envelope.gateway_secret !== expectedSecret || !envelope.payload) {
-      throw new Error('Unauthorized registration gateway');
-    }
-    result = saveRegistration(envelope.payload);
+    var body = JSON.parse(e.postData.contents);
+    result = saveRegistration(extractRegistrationPayload_(
+      body,
+      PropertiesService.getScriptProperties()
+    ));
   } catch (err) {
     console.error('Registration request rejected: ' + String(err && err.message || err));
     result = { ok: false, error: PUBLIC_ERROR_MESSAGE_ };
@@ -154,6 +153,27 @@ function doPost(e) {
   return ContentService
     .createTextOutput(JSON.stringify(result))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * Keeps the existing public form working during the gateway rollout. After the
+ * Cloudflare route is live and verified, set ALLOW_LEGACY_DIRECT to "false".
+ *
+ * @param {Object} body
+ * @param {GoogleAppsScript.Properties.Properties} properties
+ * @return {Object}
+ */
+function extractRegistrationPayload_(body, properties) {
+  var expectedSecret = properties.getProperty('API_GATEWAY_SECRET');
+  var legacyDirectAllowed = properties.getProperty('ALLOW_LEGACY_DIRECT') !== 'false';
+
+  if (expectedSecret && body && body.gateway_secret === expectedSecret && body.payload) {
+    return body.payload;
+  }
+  if (legacyDirectAllowed) {
+    return body;
+  }
+  throw new Error('Unauthorized registration gateway');
 }
 
 /**
