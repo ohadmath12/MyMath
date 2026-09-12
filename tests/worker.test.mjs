@@ -32,6 +32,38 @@ test('serves public Turnstile configuration without caching', async function () 
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
 });
 
+test('allows the GitHub Pages form to post without a preflight', async function () {
+  var request = new Request('https://form.example.test/api/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+      'Origin': 'https://ohadmath12.github.io'
+    },
+    body: JSON.stringify({ turnstile_token: 'invalid' })
+  });
+  var response = await handleRequest(request, env(), async function () {
+    return Response.json({ success: false });
+  });
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), 'https://ohadmath12.github.io');
+});
+
+test('does not grant CORS access to other origins', async function () {
+  var request = new Request('https://form.example.test/api/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/plain;charset=utf-8',
+      'Origin': 'https://example.test'
+    },
+    body: JSON.stringify({ turnstile_token: 'invalid' })
+  });
+  var response = await handleRequest(request, env(), async function () {
+    return Response.json({ success: false });
+  });
+  assert.equal(response.status, 403);
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'), null);
+});
+
 test('rejects malformed JSON generically', async function () {
   var request = new Request('https://form.example.test/api/register', {
     method: 'POST',

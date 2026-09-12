@@ -1,9 +1,9 @@
 (function () {
   'use strict';
 
-  /* Same-origin Cloudflare Worker gateway. It validates Turnstile and applies
-     rate limiting before forwarding to the private Apps Script transport. */
-  var ENDPOINT = './api/register';
+  /* Cloudflare validates Turnstile and applies rate limiting before forwarding
+     to Apps Script. GitHub Pages gets the public endpoint from config.js. */
+  var ENDPOINT = (window.MYTHEMATIX_CONFIG && window.MYTHEMATIX_CONFIG.apiEndpoint) || './api/register';
 
   var CONFIG = {
     contact: {
@@ -388,7 +388,9 @@
 
     fetch(ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      // text/plain keeps the GitHub Pages request CORS-simple; the Worker still
+      // parses and validates the body as JSON.
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify(payload)
     })
       .then(function (res) {

@@ -1,15 +1,27 @@
 const MAX_REQUEST_CHARS = 2100000;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const PUBLIC_ERROR = 'לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.';
+const GITHUB_PAGES_ORIGIN = 'https://ohadmath12.github.io';
 
-function json(body, status) {
+function allowedCorsOrigin(request) {
+  var origin = request.headers.get('Origin') || '';
+  return origin === GITHUB_PAGES_ORIGIN ? origin : '';
+}
+
+function json(body, status, request) {
+  var headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+    'X-Content-Type-Options': 'nosniff'
+  };
+  var origin = request && allowedCorsOrigin(request);
+  if (origin) {
+    headers['Access-Control-Allow-Origin'] = origin;
+    headers.Vary = 'Origin';
+  }
   return new Response(JSON.stringify(body), {
     status: status || 200,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff'
-    }
+    headers: headers
   });
 }
 
@@ -63,40 +75,54 @@ export async function handleRequest(request, env, fetchImpl) {
   }
 
   if (url.pathname !== '/api/register') return env.ASSETS.fetch(request);
-  if (request.method !== 'POST') return json({ ok: false, error: PUBLIC_ERROR }, 405);
+  if (request.method === 'OPTIONS') {
+    var corsOrigin = allowedCorsOrigin(request);
+    if (!corsOrigin) return new Response(null, { status: 403 });
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': corsOrigin,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '86400',
+        'Vary': 'Origin'
+      }
+    });
+  }
+  if (request.method !== 'POST') return json({ ok: false, error: PUBLIC_ERROR }, 405, request);
 
   var contentType = request.headers.get('Content-Type') || '';
-  if (contentType.indexOf('application/json') !== 0) {
-    return json({ ok: false, error: PUBLIC_ERROR }, 415);
+  if (contentType.indexOf('application/json') !== 0 && contentType.indexOf('text/plain') !== 0) {
+    return json({ ok: false, error: PUBLIC_ERROR }, 415, request);
   }
 
   var contentLength = Number(request.headers.get('Content-Length') || 0);
-  if (contentLength > MAX_REQUEST_CHARS) return json({ ok: false, error: PUBLIC_ERROR }, 413);
+  if (contentLength > MAX_REQUEST_CHARS) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
 
   var ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   var rate = await env.REGISTRATION_RATE_LIMITER.limit({ key: 'registration:' + ip });
-  if (!rate.success) return json({ ok: false, error: 'נשלחו יותר מדי בקשות. נסו שוב בעוד דקה.' }, 429);
+  if (!rate.success) return json({ ok: false, error: 'נשלחו יותר מדי בקשות. נסו שוב בעוד דקה.' }, 429, request);
 
   var raw = await request.text();
-  if (!raw || raw.length > MAX_REQUEST_CHARS) return json({ ok: false, error: PUBLIC_ERROR }, 413);
+  if (!raw || raw.length > MAX_REQUEST_CHARS) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
 
   var payload;
   try {
     payload = JSON.parse(raw);
   } catch (error) {
-    return json({ ok: false, error: PUBLIC_ERROR }, 400);
+    return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
   }
 
   var token = String(payload.turnstile_token || '');
-  if (!token || token.length > 2048) return json({ ok: false, error: PUBLIC_ERROR }, 400);
+  if (!token || token.length > 2048) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
 
   var verified;
   try {
     verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl);
   } catch (error) {
-    return json({ ok: false, error: PUBLIC_ERROR }, 502);
+    return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
-  if (!verified) return json({ ok: false, error: PUBLIC_ERROR }, 403);
+  if (!verified) return json({ ok: false, error: PUBLIC_ERROR }, 403, request);
 
   delete payload.turnstile_token;
   var upstream;
@@ -108,21 +134,21 @@ export async function handleRequest(request, env, fetchImpl) {
       redirect: 'follow'
     });
   } catch (error) {
-    return json({ ok: false, error: PUBLIC_ERROR }, 502);
+    return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
 
-  if (!upstream.ok) return json({ ok: false, error: PUBLIC_ERROR }, 502);
+  if (!upstream.ok) return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   var result;
   try {
     result = await upstream.json();
   } catch (error) {
-    return json({ ok: false, error: PUBLIC_ERROR }, 502);
+    return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
 
   if (!result || result.ok !== true || typeof result.registrationId !== 'string') {
-    return json({ ok: false, error: PUBLIC_ERROR }, 502);
+    return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
-  return json({ ok: true, registrationId: result.registrationId }, 200);
+  return json({ ok: true, registrationId: result.registrationId }, 200, request);
 }
 
 export default {
