@@ -155,6 +155,12 @@
   var successId = document.getElementById('success-id');
 
   var isSubmitting = false;
+  var clientSubmissionId = null;
+
+  function createClientSubmissionId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return String(Date.now()) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  }
 
   function clearFieldError(key) {
     var errEl = document.getElementById('err-' + key);
@@ -213,6 +219,22 @@
     return /^05\d{8}$/.test(digits) ? digits : '';
   }
 
+  function normalizeIsraeliId(value) {
+    var text = String(value || '').trim();
+    if (/[^\d\s-]/.test(text)) return '';
+
+    var digits = text.replace(/\D/g, '');
+    if (digits.length < 5 || digits.length > 9) return '';
+    digits = ('000000000' + digits).slice(-9);
+
+    var sum = 0;
+    for (var i = 0; i < digits.length; i++) {
+      var product = Number(digits.charAt(i)) * (i % 2 === 0 ? 1 : 2);
+      sum += product > 9 ? product - 9 : product;
+    }
+    return sum % 10 === 0 ? digits : '';
+  }
+
   function validateForm() {
     var valid = true;
     var textFields = [
@@ -233,6 +255,20 @@
       setFieldError('student_phone', 'יש להזין מספר נייד ישראלי תקין');
       valid = false;
     }
+
+    var studentIdField = document.getElementById('student_id');
+    if (studentIdField.value && !normalizeIsraeliId(studentIdField.value)) {
+      setFieldError('student_id', 'יש להזין מספר זהות ישראלי תקין');
+      valid = false;
+    }
+
+    ['student_email', 'parent_email'].forEach(function (key) {
+      var emailField = document.getElementById(key);
+      if (emailField.value && !emailField.checkValidity()) {
+        setFieldError(key, 'יש להזין כתובת דוא״ל תקינה');
+        valid = false;
+      }
+    });
 
     if (!getRadioValue('is_science')) {
       setFieldError('is_science', 'שדה חובה');
@@ -262,6 +298,7 @@
     form.reset();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     hasSignatureStroke = false;
+    clientSubmissionId = null;
   }
 
   function showSuccess(registrationId) {
@@ -286,10 +323,12 @@
       return;
     }
 
+    if (!clientSubmissionId) clientSubmissionId = createClientSubmissionId();
+
     var payload = {
       student_first_name: document.getElementById('student_first_name').value,
       student_last_name: document.getElementById('student_last_name').value,
-      student_id: document.getElementById('student_id').value,
+      student_id: normalizeIsraeliId(document.getElementById('student_id').value),
       student_phone: normalizeIsraeliMobilePhone(document.getElementById('student_phone').value),
       student_email: document.getElementById('student_email').value,
       school_name: document.getElementById('school_name').value,
@@ -301,7 +340,7 @@
       parent_email: document.getElementById('parent_email').value,
       signature_data_url: canvas.toDataURL('image/png'),
       honeypot: document.getElementById('hp-field').value,
-      client_submission_id: (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now())
+      client_submission_id: clientSubmissionId
     };
 
     setLoadingState(true);

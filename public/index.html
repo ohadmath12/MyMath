@@ -282,7 +282,7 @@
               </div>
               <div class="field">
                 <label for="student_id">תעודת זהות<span class="required-mark">*</span></label>
-                <input type="text" id="student_id" name="student_id" required maxlength="20" inputmode="numeric" autocomplete="off">
+                <input type="text" id="student_id" name="student_id" required minlength="5" maxlength="9" inputmode="numeric" pattern="[0-9]{5,9}" autocomplete="off">
                 <div class="field-error" id="err-student_id"></div>
               </div>
               <div class="field">
@@ -400,8 +400,8 @@
           <div class="submit-row">
             <div class="form-feedback error" id="form-error" role="alert" aria-live="assertive"></div>
             <p class="privacy-note">
-              הפרטים שתמלאו ישמשו את MyTheMatix לצורך רישום התלמיד לתוכנית וליצירת קשר בנוגע להרשמה בלבד,
-              ולא יועברו לצד שלישי.
+              הפרטים ישמשו את MyTheMatix לצורך הרשמה, יצירת קשר וניהול התוכנית.
+              המידע נשמר ומעובד במערכות Google ובמערכת ה־CRM של העסק, והגישה אליו מוגבלת למורשי העסק.
             </p>
             <button type="submit" class="btn btn-primary" id="submit-btn">
               <svg class="icon" aria-hidden="true"><use href="#icon-send"/></svg>

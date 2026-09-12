@@ -11,8 +11,9 @@ Google Sheet and writes the signature PNG to a Google Drive folder.
 
 Live site: <https://ohadmath12.github.io/MyMath/>
 
-There is no build step, package manager, or test suite — `public/` is served
-verbatim and the Apps Script file is pushed as-is into the Apps Script runtime.
+There is no build step or package manager — `public/` is served verbatim and
+the Apps Script file is pushed as-is into the Apps Script runtime. Security
+validation helpers have a small Node test in `tests/security.test.js`.
 
 ### Why the split
 
@@ -171,9 +172,13 @@ project settings:
    - `normalizePayload_` / `sanitizeText_` trim, strip control chars, cap length
      per `FIELD_MAX_LENGTHS_`, and prefix `'` on values starting with `=+-@` to
      prevent formula injection in the Sheet.
-   - `decodeSignature_` validates the `data:image/png;base64,` prefix and a max
-     length before decoding.
-4. A script lock (`LockService`) wraps the write. The PNG goes to Drive first;
+   - Israeli ID checksum, email, school/class/units allowlists and the client
+     submission identifier are validated again on the server.
+   - `decodeSignature_` validates the PNG header, size and pixel dimensions.
+4. A script lock (`LockService`) wraps the duplicate check and write. A stable
+   `client_submission_id` is stored in trailing column X, so a browser retry
+   returns the existing registration instead of creating a second row/file.
+   The PNG goes to Drive first;
    if the Sheet append then fails, the just-created Drive file is trashed as a
    best-effort rollback (Apps Script has no cross-service transactions).
 5. `SHEET_HEADERS_` is the single source of truth for column order — it must
@@ -203,12 +208,20 @@ project settings:
 - This repo is the single source of truth. Don't edit `Code.gs` in the Apps
   Script web editor — the next `clasp push` overwrites it silently.
 
+## Current architecture decision
+
+Supabase/CRM is the long-term operational source of truth. The Sheet remains a
+temporary intake/audit surface because the current CRM schema intentionally
+does not store government ID or signature data. A future direct-to-CRM route
+must first define private storage, retention, and access for those fields; the
+Sheet should then become an optional sanitized operational mirror, not a
+required hop.
+
 ## Known gaps
 
-- `client_submission_id` is generated and sent but dropped server-side, so a
-  double-tap writes two rows. Fixing it means adding a Sheet column.
 - Bot protection is the honeypot only, and `ENDPOINT` is public in client JS.
-  Turnstile could be verified server-side from `Code.gs` via `UrlFetchApp`.
+  Production still needs a server-side Turnstile check and real rate limiting,
+  ideally through a same-origin edge gateway with a secret to Apps Script.
 - The Sheet holds, for minors: full name, Israeli ID number, phone, email,
   school, parent details, and a signature image. Israel's Privacy Protection Law
   Amendment 13 took effect 14 Aug 2025 — worth confirming the Sheet and Drive

@@ -26,7 +26,8 @@ var SHEET_HEADERS_ = [
   'crm_sync_status',
   'crm_synced_at',
   'crm_student_id',
-  'crm_sync_error'
+  'crm_sync_error',
+  'client_submission_id'
 ];
 
 var REQUIRED_FIELDS_ = [
@@ -41,7 +42,8 @@ var REQUIRED_FIELDS_ = [
   'parent_role',
   'parent_name',
   'parent_email',
-  'signature_data_url'
+  'signature_data_url',
+  'client_submission_id'
 ];
 
 var FIELD_MAX_LENGTHS_ = {
@@ -57,11 +59,26 @@ var FIELD_MAX_LENGTHS_ = {
   parent_role: 10,
   parent_name: 80,
   parent_email: 120,
+  client_submission_id: 64,
   honeypot: 200
 };
 
-var SCHEMA_VERSION_ = 2;
+var SCHEMA_VERSION_ = 3;
 var MAX_SIGNATURE_DATA_URL_LENGTH_ = 2000000; // ~2MB base64 safety cap
+var MAX_SIGNATURE_WIDTH_ = 4096;
+var MAX_SIGNATURE_HEIGHT_ = 4096;
+var MAX_SIGNATURE_PIXELS_ = 8000000;
+var PUBLIC_ERROR_MESSAGE_ = 'לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.';
+var ALLOWED_SCHOOLS_ = [
+  'חטיבת הביניים הראשונים, גני תקווה',
+  'תיכון מיתר, גני תקווה',
+  'חטיבת בן צבי, קריית אונו',
+  'תיכון בן צבי, קריית אונו',
+  'חטיבת שמעון פרס, קריית אונו',
+  'חטיבת שז"ר, קריית אונו'
+];
+var ALLOWED_CLASSES_ = ['ז', 'ח', 'ט', 'י', 'י״א', 'י״ב'];
+var ALLOWED_UNITS_ = ['הקבצה א', 'הקבצה ב', '4 יח״ל', '5 יח״ל'];
 
 // Where the page actually lives now. Hard-coded rather than a Script Property
 // on purpose: an unset property would leave the old link dead, and this mirrors
@@ -120,11 +137,13 @@ function doPost(e) {
   var result;
 
   try {
+    if (!e || !e.postData || typeof e.postData.contents !== 'string') {
+      throw new Error('Missing request body');
+    }
     result = saveRegistration(JSON.parse(e.postData.contents));
   } catch (err) {
-    // saveRegistration only ever throws the generic, user-facing Hebrew
-    // strings defined in this file, so echoing the message leaks nothing.
-    result = { ok: false, error: err.message };
+    console.error('Registration request rejected: ' + String(err && err.message || err));
+    result = { ok: false, error: PUBLIC_ERROR_MESSAGE_ };
   }
 
   return ContentService
@@ -150,16 +169,23 @@ function saveRegistration(payload) {
   validateRequiredFields_(payload);
 
   var normalized = normalizePayload_(payload);
-  var registrationId = Utilities.getUuid();
+  validateNormalizedPayload_(normalized);
   var signatureBlob = decodeSignature_(normalized.signature_data_url);
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
+  var registrationId = null;
   var signatureFile = null;
   var record = null;
   var targetRow = null;
   try {
+    var existingRegistrationId = findRegistrationByClientSubmissionId_(normalized.client_submission_id);
+    if (existingRegistrationId) {
+      return buildSuccessResponse_(existingRegistrationId);
+    }
+
+    registrationId = Utilities.getUuid();
     signatureFile = saveSignature_(registrationId, signatureBlob);
 
     record = {
@@ -185,7 +211,8 @@ function saveRegistration(payload) {
       crm_sync_status: 'pending',
       crm_synced_at: '',
       crm_student_id: '',
-      crm_sync_error: ''
+      crm_sync_error: '',
+      client_submission_id: normalized.client_submission_id
     };
 
     targetRow = appendRegistration_(record);
@@ -250,9 +277,68 @@ function normalizePayload_(payload) {
   });
 
   normalized.student_phone = normalizeIsraeliMobilePhone_(normalized.student_phone);
+  normalized.student_id = normalizeIsraeliId_(normalized.student_id);
   normalized.signature_data_url = String(payload.signature_data_url || '');
 
   return normalized;
+}
+
+/**
+ * Validates normalized fields that must never rely on browser controls alone.
+ * @param {Object} normalized
+ */
+function validateNormalizedPayload_(normalized) {
+  if (!isValidEmail_(normalized.parent_email)) {
+    throw new Error('Invalid parent email');
+  }
+
+  if (normalized.student_email && !isValidEmail_(normalized.student_email)) {
+    throw new Error('Invalid student email');
+  }
+
+  if (ALLOWED_SCHOOLS_.indexOf(normalized.school_name) === -1 ||
+      ALLOWED_CLASSES_.indexOf(normalized.class_name) === -1 ||
+      ALLOWED_UNITS_.indexOf(normalized.units) === -1) {
+    throw new Error('Invalid study details');
+  }
+
+  if (!/^[A-Za-z0-9-]{16,64}$/.test(normalized.client_submission_id)) {
+    throw new Error('Invalid submission identifier');
+  }
+}
+
+function isValidEmail_(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+}
+
+/**
+ * Normalizes and validates an Israeli identity number, including checksum.
+ * @param {*} value
+ * @return {string}
+ */
+function normalizeIsraeliId_(value) {
+  var text = String(value || '').trim();
+  if (/[^\d\s-]/.test(text)) {
+    throw new Error('Invalid identity number');
+  }
+
+  var digits = text.replace(/\D/g, '');
+  if (digits.length < 5 || digits.length > 9) {
+    throw new Error('Invalid identity number');
+  }
+
+  digits = ('000000000' + digits).slice(-9);
+  var sum = 0;
+  for (var i = 0; i < digits.length; i++) {
+    var product = Number(digits.charAt(i)) * (i % 2 === 0 ? 1 : 2);
+    sum += product > 9 ? product - 9 : product;
+  }
+
+  if (sum % 10 !== 0) {
+    throw new Error('Invalid identity number');
+  }
+
+  return digits;
 }
 
 /**
@@ -322,7 +408,32 @@ function decodeSignature_(dataUrl) {
   }
 
   var bytes = Utilities.base64Decode(base64);
+
+  var pngMagic = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < 24) {
+    throw new Error('Invalid PNG');
+  }
+  for (var i = 0; i < pngMagic.length; i++) {
+    if ((bytes[i] & 255) !== pngMagic[i]) {
+      throw new Error('Invalid PNG');
+    }
+  }
+
+  var width = readPngUint32_(bytes, 16);
+  var height = readPngUint32_(bytes, 20);
+  if (!width || !height || width > MAX_SIGNATURE_WIDTH_ || height > MAX_SIGNATURE_HEIGHT_ ||
+      width * height > MAX_SIGNATURE_PIXELS_) {
+    throw new Error('Invalid PNG dimensions');
+  }
+
   return Utilities.newBlob(bytes, 'image/png', 'signature.png');
+}
+
+function readPngUint32_(bytes, offset) {
+  return ((bytes[offset] & 255) * 16777216) +
+    ((bytes[offset + 1] & 255) * 65536) +
+    ((bytes[offset + 2] & 255) * 256) +
+    (bytes[offset + 3] & 255);
 }
 
 /**
@@ -348,20 +459,8 @@ function saveSignature_(registrationId, blob) {
  * @return {number} Added row number.
  */
 function appendRegistration_(record) {
-  var props = PropertiesService.getScriptProperties();
-  var spreadsheetId = props.getProperty('SPREADSHEET_ID');
-  var sheetName = props.getProperty('SHEET_NAME') || 'Registrations';
-
-  if (!spreadsheetId) {
-    throw new Error('הגיליון אינו מוגדר.');
-  }
-
-  var spreadsheet = SpreadsheetApp.openById(spreadsheetId);
-  var sheet = spreadsheet.getSheetByName(sheetName);
-
-  if (!sheet) {
-    throw new Error('לשונית הגיליון לא נמצאה.');
-  }
+  var sheet = getRegistrationSheet_();
+  ensureRegistrationHeaders_(sheet);
 
   var row = SHEET_HEADERS_.map(function (key) {
     return record[key];
@@ -373,6 +472,54 @@ function appendRegistration_(record) {
   sheet.getRange(targetRow, phoneColumn).setNumberFormat('@');
   sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
   return targetRow;
+}
+
+function getRegistrationSheet_() {
+  var props = PropertiesService.getScriptProperties();
+  var spreadsheetId = props.getProperty('SPREADSHEET_ID');
+  var sheetName = props.getProperty('SHEET_NAME') || 'Registrations';
+
+  if (!spreadsheetId) {
+    throw new Error('Registration sheet is not configured');
+  }
+
+  var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
+  if (!sheet) {
+    throw new Error('Registration sheet is unavailable');
+  }
+  return sheet;
+}
+
+/** Adds only missing trailing headers; it never shifts or overwrites existing columns. */
+function ensureRegistrationHeaders_(sheet) {
+  var currentHeaders = sheet.getRange(1, 1, 1, SHEET_HEADERS_.length).getDisplayValues()[0];
+  for (var i = 0; i < SHEET_HEADERS_.length; i++) {
+    if (!currentHeaders[i]) {
+      sheet.getRange(1, i + 1).setValue(SHEET_HEADERS_[i]);
+    } else if (currentHeaders[i] !== SHEET_HEADERS_[i]) {
+      throw new Error('Registration sheet schema mismatch at column ' + (i + 1));
+    }
+  }
+}
+
+/**
+ * Returns the existing registration for a retried browser submission.
+ * @param {string} clientSubmissionId
+ * @return {string|null}
+ */
+function findRegistrationByClientSubmissionId_(clientSubmissionId) {
+  var sheet = getRegistrationSheet_();
+  ensureRegistrationHeaders_(sheet);
+  if (sheet.getLastRow() < 2) return null;
+
+  var idColumn = SHEET_HEADERS_.indexOf('client_submission_id') + 1;
+  var values = sheet.getRange(2, idColumn, sheet.getLastRow() - 1, 1).getDisplayValues();
+  for (var i = 0; i < values.length; i++) {
+    if (values[i][0] === clientSubmissionId) {
+      return String(sheet.getRange(i + 2, 1).getDisplayValue() || '') || null;
+    }
+  }
+  return null;
 }
 
 /**
