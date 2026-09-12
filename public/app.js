@@ -225,7 +225,7 @@
     var keys = [
       'student_first_name', 'student_last_name', 'student_id', 'student_phone', 'student_email',
       'school_name', 'class_name', 'units', 'is_science',
-      'parent_role', 'parent_name', 'parent_email', 'signature', 'turnstile'
+      'parent_role', 'parent_name', 'parent_phone', 'parent_email', 'signature', 'turnstile'
     ];
     keys.forEach(clearFieldError);
     formError.textContent = '';
@@ -274,7 +274,7 @@
     var valid = true;
     var textFields = [
       'student_first_name', 'student_last_name', 'student_id', 'student_phone',
-      'school_name', 'class_name', 'units', 'parent_name', 'parent_email'
+      'school_name', 'class_name', 'units', 'parent_name', 'parent_phone', 'parent_email'
     ];
 
     textFields.forEach(function (key) {
@@ -288,6 +288,12 @@
     var phoneField = document.getElementById('student_phone');
     if (phoneField.value && !normalizeIsraeliMobilePhone(phoneField.value)) {
       setFieldError('student_phone', 'יש להזין מספר נייד ישראלי תקין');
+      valid = false;
+    }
+
+    var parentPhoneField = document.getElementById('parent_phone');
+    if (parentPhoneField.value && !normalizeIsraeliMobilePhone(parentPhoneField.value)) {
+      setFieldError('parent_phone', 'יש להזין מספר נייד ישראלי תקין');
       valid = false;
     }
 
@@ -377,6 +383,7 @@
       units: document.getElementById('units').value,
       parent_role: getRadioValue('parent_role'),
       parent_name: document.getElementById('parent_name').value,
+      parent_phone: normalizeIsraeliMobilePhone(document.getElementById('parent_phone').value),
       parent_email: document.getElementById('parent_email').value,
       signature_data_url: canvas.toDataURL('image/png'),
       honeypot: document.getElementById('hp-field').value,

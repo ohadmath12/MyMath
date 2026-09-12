@@ -5,6 +5,8 @@ const fs = require('fs');
 const vm = require('vm');
 
 const source = fs.readFileSync(require('path').join(__dirname, '..', 'Code.gs'), 'utf8');
+const htmlSource = fs.readFileSync(require('path').join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const appSource = fs.readFileSync(require('path').join(__dirname, '..', 'public', 'app.js'), 'utf8');
 const context = vm.createContext({ console });
 vm.runInContext(source, context, { filename: 'Code.gs' });
 
@@ -21,6 +23,8 @@ assert.strictEqual(context.SHEET_HEADERS_.slice(19, 23).join(','),
   'crm_sync_status,crm_synced_at,crm_student_id,crm_sync_error');
 assert.strictEqual(context.SHEET_HEADERS_[23], 'client_submission_id');
 assert.strictEqual(context.SHEET_HEADERS_[24], 'parent_phone');
+assert.match(htmlSource, /id="parent_phone"[^>]*required/);
+assert.match(appSource, /parent_phone: normalizeIsraeliMobilePhone/);
 
 assert.strictEqual(context.readPngUint32_([0, 0, 2, 0], 0), 512);
 
