@@ -23,4 +23,20 @@ assert.strictEqual(context.SHEET_HEADERS_[23], 'client_submission_id');
 
 assert.strictEqual(context.readPngUint32_([0, 0, 2, 0], 0), 512);
 
+const strictProperties = {
+  getProperty(name) {
+    return name === 'API_GATEWAY_SECRET' ? 'test-secret' : 'false';
+  }
+};
+const gatewayPayload = { student_first_name: 'בדיקה' };
+assert.strictEqual(
+  context.extractRegistrationPayload_({ gateway_secret: 'test-secret', payload: gatewayPayload }, strictProperties),
+  gatewayPayload
+);
+assert.throws(() => context.extractRegistrationPayload_({ student_first_name: 'בדיקה' }, strictProperties));
+
+const transitionProperties = { getProperty() { return null; } };
+const legacyPayload = { student_first_name: 'בדיקה ישנה' };
+assert.strictEqual(context.extractRegistrationPayload_(legacyPayload, transitionProperties), legacyPayload);
+
 console.log('Security validation tests passed.');
