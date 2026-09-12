@@ -498,9 +498,11 @@ function appendRegistration_(record) {
   });
 
   var targetRow = sheet.getLastRow() + 1;
-  var phoneColumn = SHEET_HEADERS_.indexOf('student_phone') + 1;
+  var studentPhoneColumn = SHEET_HEADERS_.indexOf('student_phone') + 1;
+  var parentPhoneColumn = SHEET_HEADERS_.indexOf('parent_phone') + 1;
 
-  sheet.getRange(targetRow, phoneColumn).setNumberFormat('@');
+  sheet.getRange(targetRow, studentPhoneColumn).setNumberFormat('@');
+  sheet.getRange(targetRow, parentPhoneColumn).setNumberFormat('@');
   sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
   return targetRow;
 }
