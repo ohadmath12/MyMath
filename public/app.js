@@ -1,11 +1,9 @@
 (function () {
   'use strict';
 
-  /* The Apps Script web app, which now does nothing but persist a submission:
-     it appends the row to the Sheet and writes the signature PNG to Drive.
-     Public by necessity — a static page has nowhere to hide a URL — which is
-     why the server re-validates everything and keeps the honeypot check. */
-  var ENDPOINT = 'https://script.google.com/macros/s/AKfycbxe9SCJRyQAxbJV2bPN6ZiVwykl8xB1AYtgsv78jobOwj3y8mCedUaV8bvtFIvNwAaCfQ/exec';
+  /* Same-origin Cloudflare Worker gateway. It validates Turnstile and applies
+     rate limiting before forwarding to the private Apps Script transport. */
+  var ENDPOINT = './api/register';
 
   var CONFIG = {
     contact: {
@@ -156,11 +154,48 @@
 
   var isSubmitting = false;
   var clientSubmissionId = null;
+  var turnstileWidgetId = null;
+  var turnstileToken = '';
 
   function createClientSubmissionId() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
     return String(Date.now()) + '-' + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
   }
+
+  function initializeTurnstile() {
+    var siteKey = window.MYTHEMATIX_CONFIG && window.MYTHEMATIX_CONFIG.turnstileSiteKey;
+    if (!siteKey || !window.turnstile) {
+      showFormError('בדיקת האבטחה לא נטענה. רעננו את העמוד ונסו שוב.');
+      return;
+    }
+
+    turnstileWidgetId = window.turnstile.render('#turnstile-widget', {
+      sitekey: siteKey,
+      action: 'registration',
+      theme: 'light',
+      size: 'flexible',
+      callback: function (token) {
+        turnstileToken = token;
+        clearFieldError('turnstile');
+      },
+      'expired-callback': function () {
+        turnstileToken = '';
+      },
+      'error-callback': function () {
+        turnstileToken = '';
+        setFieldError('turnstile', 'בדיקת האבטחה נכשלה. נסו שוב.');
+      }
+    });
+  }
+
+  function resetTurnstile() {
+    turnstileToken = '';
+    if (window.turnstile && turnstileWidgetId !== null) {
+      window.turnstile.reset(turnstileWidgetId);
+    }
+  }
+
+  window.addEventListener('load', initializeTurnstile);
 
   function clearFieldError(key) {
     var errEl = document.getElementById('err-' + key);
@@ -190,7 +225,7 @@
     var keys = [
       'student_first_name', 'student_last_name', 'student_id', 'student_phone', 'student_email',
       'school_name', 'class_name', 'units', 'is_science',
-      'parent_role', 'parent_name', 'parent_email', 'signature'
+      'parent_role', 'parent_name', 'parent_email', 'signature', 'turnstile'
     ];
     keys.forEach(clearFieldError);
     formError.textContent = '';
@@ -285,6 +320,11 @@
       valid = false;
     }
 
+    if (!turnstileToken) {
+      setFieldError('turnstile', 'יש להשלים את בדיקת האבטחה');
+      valid = false;
+    }
+
     return valid;
   }
 
@@ -340,19 +380,15 @@
       parent_email: document.getElementById('parent_email').value,
       signature_data_url: canvas.toDataURL('image/png'),
       honeypot: document.getElementById('hp-field').value,
-      client_submission_id: clientSubmissionId
+      client_submission_id: clientSubmissionId,
+      turnstile_token: turnstileToken
     };
 
     setLoadingState(true);
 
     fetch(ENDPOINT, {
       method: 'POST',
-      /* Deliberately text/plain. Apps Script exposes no doOptions, so a CORS
-         preflight gets a 405 and the request never happens. text/plain is a
-         CORS-safelisted content type, which keeps this a "simple request" and
-         means no preflight is ever sent. Do NOT "fix" this to
-         application/json — it silently breaks every submission. */
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
       .then(function (res) {
@@ -364,11 +400,13 @@
           resetForm();
           showSuccess(response.registrationId);
         } else {
+          resetTurnstile();
           showFormError('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');
         }
       })
       .catch(function () {
         setLoadingState(false);
+        resetTurnstile();
         showFormError('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');
       });
   });

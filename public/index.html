@@ -399,6 +399,8 @@
 
           <div class="submit-row">
             <div class="form-feedback error" id="form-error" role="alert" aria-live="assertive"></div>
+            <div id="turnstile-widget" class="turnstile-widget" aria-label="בדיקת אבטחה"></div>
+            <div class="field-error" id="err-turnstile" role="alert"></div>
             <p class="privacy-note">
               הפרטים ישמשו את MyTheMatix לצורך הרשמה, יצירת קשר וניהול התוכנית.
               המידע נשמר ומעובד במערכות Google ובמערכת ה־CRM של העסק, והגישה אליו מוגבלת למורשי העסק.
@@ -428,6 +430,8 @@
   </div>
 </footer>
 
-<script src="./app.js"></script>
+<script src="./config.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+<script src="./app.js" defer></script>
 </body>
 </html>

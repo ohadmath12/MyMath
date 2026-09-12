@@ -140,7 +140,12 @@ function doPost(e) {
     if (!e || !e.postData || typeof e.postData.contents !== 'string') {
       throw new Error('Missing request body');
     }
-    result = saveRegistration(JSON.parse(e.postData.contents));
+    var envelope = JSON.parse(e.postData.contents);
+    var expectedSecret = PropertiesService.getScriptProperties().getProperty('API_GATEWAY_SECRET');
+    if (!expectedSecret || !envelope || envelope.gateway_secret !== expectedSecret || !envelope.payload) {
+      throw new Error('Unauthorized registration gateway');
+    }
+    result = saveRegistration(envelope.payload);
   } catch (err) {
     console.error('Registration request rejected: ' + String(err && err.message || err));
     result = { ok: false, error: PUBLIC_ERROR_MESSAGE_ };

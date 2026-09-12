@@ -676,3 +676,7 @@ footer {
   section { padding: 48px 0; }
   .btn-primary { width: 100%; }
 }
+.turnstile-widget {
+  min-height: 65px;
+  width: 100%;
+}

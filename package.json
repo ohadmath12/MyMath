@@ -1,0 +1,11 @@
+{
+  "name": "mythematix-registration",
+  "private": true,
+  "scripts": {
+    "check": "node --check public/app.js && node --check src/worker.mjs",
+    "test": "node tests/security.test.js && node --test tests/worker.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.131.1"
+  }
+}
