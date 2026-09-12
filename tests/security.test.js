@@ -20,6 +20,7 @@ assert.strictEqual(context.ALLOWED_SCHOOLS_.includes('חטיבת שז"ר, קרי
 assert.strictEqual(context.SHEET_HEADERS_.slice(19, 23).join(','),
   'crm_sync_status,crm_synced_at,crm_student_id,crm_sync_error');
 assert.strictEqual(context.SHEET_HEADERS_[23], 'client_submission_id');
+assert.strictEqual(context.SHEET_HEADERS_[24], 'parent_phone');
 
 assert.strictEqual(context.readPngUint32_([0, 0, 2, 0], 0), 512);
 

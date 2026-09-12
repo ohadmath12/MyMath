@@ -27,7 +27,8 @@ var SHEET_HEADERS_ = [
   'crm_synced_at',
   'crm_student_id',
   'crm_sync_error',
-  'client_submission_id'
+  'client_submission_id',
+  'parent_phone'
 ];
 
 var REQUIRED_FIELDS_ = [
@@ -58,12 +59,13 @@ var FIELD_MAX_LENGTHS_ = {
   units: 30,
   parent_role: 10,
   parent_name: 80,
+  parent_phone: 20,
   parent_email: 120,
   client_submission_id: 64,
   honeypot: 200
 };
 
-var SCHEMA_VERSION_ = 3;
+var SCHEMA_VERSION_ = 4;
 var MAX_SIGNATURE_DATA_URL_LENGTH_ = 2000000; // ~2MB base64 safety cap
 var MAX_SIGNATURE_WIDTH_ = 4096;
 var MAX_SIGNATURE_HEIGHT_ = 4096;
@@ -237,7 +239,8 @@ function saveRegistration(payload) {
       crm_synced_at: '',
       crm_student_id: '',
       crm_sync_error: '',
-      client_submission_id: normalized.client_submission_id
+      client_submission_id: normalized.client_submission_id,
+      parent_phone: normalized.parent_phone
     };
 
     targetRow = appendRegistration_(record);
@@ -302,6 +305,9 @@ function normalizePayload_(payload) {
   });
 
   normalized.student_phone = normalizeIsraeliMobilePhone_(normalized.student_phone);
+  normalized.parent_phone = normalized.parent_phone
+    ? normalizeIsraeliMobilePhone_(normalized.parent_phone)
+    : '';
   normalized.student_id = normalizeIsraeliId_(normalized.student_id);
   normalized.signature_data_url = String(payload.signature_data_url || '');
 
@@ -574,6 +580,7 @@ function syncRegistrationToCrm_(record, targetRow) {
     units: record.units,
     parent_role: record.parent_role,
     parent_name: record.parent_name,
+    parent_phone: record.parent_phone,
     parent_email: record.parent_email
   };
 
