@@ -42,6 +42,7 @@ var REQUIRED_FIELDS_ = [
   'units',
   'parent_role',
   'parent_name',
+  'parent_phone',
   'parent_email',
   'signature_data_url',
   'client_submission_id'

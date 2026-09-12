@@ -23,6 +23,7 @@ assert.strictEqual(context.SHEET_HEADERS_.slice(19, 23).join(','),
   'crm_sync_status,crm_synced_at,crm_student_id,crm_sync_error');
 assert.strictEqual(context.SHEET_HEADERS_[23], 'client_submission_id');
 assert.strictEqual(context.SHEET_HEADERS_[24], 'parent_phone');
+assert.strictEqual(context.REQUIRED_FIELDS_.includes('parent_phone'), true);
 assert.match(htmlSource, /id="parent_phone"[^>]*required/);
 assert.match(appSource, /parent_phone: normalizeIsraeliMobilePhone/);
 
