@@ -234,10 +234,10 @@ MyTheMatix Registration/
 | תלמיד | תעודת זהות | `student_id` | טקסט | — | כן |
 | תלמיד | טלפון נייד | `student_phone` | טלפון/טקסט | — | כן |
 | תלמיד | כתובת דוא״ל | `student_email` | דוא״ל | — | לא |
-| לימודים | שם בית הספר | `school_name` | רשימה | אחד העם פ״ת, גולדה פ״ת, יצחק שמיר פ״ת, רמון פ״ת, הכפר הירוק | כן |
+| לימודים | שם בית הספר | `school_name` | רשימה | חטיבת הביניים הראשונים גני תקווה, חטיבת בראשית גני תקווה, תיכון מיתר גני תקווה, חטיבת בן צבי קריית אונו, תיכון בן צבי קריית אונו, חטיבת שמעון פרס קריית אונו, חטיבת שז״ר קריית אונו | כן |
 | לימודים | כיתה | `class_name` | רשימה | ז, ח, ט, י, י״א, י״ב | כן |
 | לימודים | כיתה מדעית | `is_science` | רדיו | כן, לא | כן |
-| לימודים | הקבצה / מספר יח״ל | `units` | רשימה | הקבצה א, הקבצה ב, 4 יח״ל, 5 יח״ל | כן |
+| לימודים | הקבצה / מספר יח״ל | `units` | רשימה | לא רלוונטי, הקבצה א, הקבצה א׳ חדשה, הקבצה ב, 4 יח״ל, 5 יח״ל | כן |
 | הורה | מבצע ההרשמה | `parent_role` | רשימה | אב, אם | כן |
 | הורה | שם ההורה | `parent_name` | טקסט | — | כן |
 | הורה | כתובת דוא״ל ההורה | `parent_email` | דוא״ל | — | כן |
@@ -587,4 +587,3 @@ CAPTCHA, הגבלת קצב מתקדמת וסינון כפילויות יידחו
 - [Google Apps Script Lock Service](https://developers.google.com/apps-script/reference/lock)
 - [Google Apps Script Drive Service](https://developers.google.com/apps-script/reference/drive)
 - [מכסות Google Apps Script](https://developers.google.com/apps-script/guides/services/quotas)
-

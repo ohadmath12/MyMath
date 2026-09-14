@@ -19,6 +19,12 @@ assert.strictEqual(context.isValidEmail_('parent@example.com'), true);
 assert.strictEqual(context.isValidEmail_('not-an-email'), false);
 
 assert.strictEqual(context.ALLOWED_SCHOOLS_.includes('חטיבת שז"ר, קריית אונו'), true);
+assert.strictEqual(context.ALLOWED_SCHOOLS_.includes('חטיבת בראשית, גני תקווה'), true);
+assert.strictEqual(context.ALLOWED_UNITS_.includes('לא רלוונטי'), true);
+assert.strictEqual(context.ALLOWED_UNITS_.includes('הקבצה א׳ חדשה'), true);
+assert.match(htmlSource, /value="חטיבת בראשית, גני תקווה"/);
+assert.match(htmlSource, /value="לא רלוונטי"/);
+assert.match(htmlSource, /value="הקבצה א׳ חדשה"/);
 assert.strictEqual(context.SHEET_HEADERS_.slice(19, 23).join(','),
   'crm_sync_status,crm_synced_at,crm_student_id,crm_sync_error');
 assert.strictEqual(context.SHEET_HEADERS_[23], 'client_submission_id');
