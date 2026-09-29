@@ -73,6 +73,7 @@ var MAX_SIGNATURE_HEIGHT_ = 4096;
 var MAX_SIGNATURE_PIXELS_ = 8000000;
 var PUBLIC_ERROR_MESSAGE_ = 'לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.';
 var ALLOWED_SCHOOLS_ = [
+  'בית ספר יסודי יובלים',
   'חטיבת הביניים הראשונים, גני תקווה',
   'חטיבת בראשית, גני תקווה',
   'תיכון מיתר, גני תקווה',
@@ -81,7 +82,7 @@ var ALLOWED_SCHOOLS_ = [
   'חטיבת שמעון פרס, קריית אונו',
   'חטיבת שז"ר, קריית אונו'
 ];
-var ALLOWED_CLASSES_ = ['ז', 'ח', 'ט', 'י', 'י״א', 'י״ב'];
+var ALLOWED_CLASSES_ = ['ד', 'ה', 'ו', 'ז', 'ח', 'ט', 'י', 'י״א', 'י״ב'];
 var ALLOWED_UNITS_ = ['לא רלוונטי', 'הקבצה א', 'הקבצה א׳ חדשה', 'הקבצה ב', '4 יח״ל', '5 יח״ל'];
 
 // Where the page actually lives now. Hard-coded rather than a Script Property

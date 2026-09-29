@@ -19,10 +19,16 @@ assert.strictEqual(context.isValidEmail_('parent@example.com'), true);
 assert.strictEqual(context.isValidEmail_('not-an-email'), false);
 
 assert.strictEqual(context.ALLOWED_SCHOOLS_.includes('חטיבת שז"ר, קריית אונו'), true);
+assert.strictEqual(context.ALLOWED_SCHOOLS_.includes('בית ספר יסודי יובלים'), true);
 assert.strictEqual(context.ALLOWED_SCHOOLS_.includes('חטיבת בראשית, גני תקווה'), true);
+assert.strictEqual(context.ALLOWED_CLASSES_.slice(0, 3).join(','), 'ד,ה,ו');
 assert.strictEqual(context.ALLOWED_UNITS_.includes('לא רלוונטי'), true);
 assert.strictEqual(context.ALLOWED_UNITS_.includes('הקבצה א׳ חדשה'), true);
 assert.match(htmlSource, /value="חטיבת בראשית, גני תקווה"/);
+assert.match(htmlSource, /value="בית ספר יסודי יובלים"/);
+assert.match(htmlSource, /value="ד"/);
+assert.match(htmlSource, /value="ה"/);
+assert.match(htmlSource, /value="ו"/);
 assert.match(htmlSource, /value="לא רלוונטי"/);
 assert.match(htmlSource, /value="הקבצה א׳ חדשה"/);
 assert.strictEqual(context.SHEET_HEADERS_.slice(19, 23).join(','),
