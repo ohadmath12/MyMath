@@ -58,3 +58,19 @@ const legacyPayload = { student_first_name: 'בדיקה ישנה' };
 assert.strictEqual(context.extractRegistrationPayload_(legacyPayload, transitionProperties), legacyPayload);
 
 console.log('Security validation tests passed.');
+
+const calls=[];
+context.PropertiesService={getScriptProperties:()=>({getProperty:key=>({CRM_INTAKE_URL:'https://example.invalid/intake',CRM_INTAKE_SECRET:'test-only'}[key])})};
+const receipt='30000000-0000-4000-8000-000000000001';
+context.UrlFetchApp={fetch:(url,options)=>{calls.push({url,options});return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({ok:true,receipt})}}};
+const normalized={client_submission_id:'10000000-0000-4000-8000-000000000001',student_first_name:'Test',student_last_name:'Student',parent_phone:'0500000000'};
+assert.equal(context.reserveTrialConversion_({trial_token:'a'.repeat(64)},normalized),receipt);
+assert.equal(JSON.parse(calls[0].options.payload).operation,'reserve_trial_conversion');
+assert.equal(context.SHEET_HEADERS_[25],'trial_conversion_receipt');
+let sync;
+context.updateCrmSyncCells_=(...args)=>{sync=args};
+context.UrlFetchApp.fetch=(url,options)=>{calls.push({url,options});return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({ok:true,registration_id:'reg',student_id:'student'})}};
+context.syncRegistrationToCrm_({...normalized,registration_id:'reg',trial_conversion_receipt:receipt},2);
+const sent=JSON.parse(calls[1].options.payload);
+assert.equal(sent.trial_conversion_receipt,receipt);assert.equal(sent.client_submission_id,normalized.client_submission_id);assert.equal(sent.trial_token,undefined);assert.equal(sync[1],'synced');
+console.log('Conversion receipt exchange and retry payload tests passed; no token persisted to Sheets.');

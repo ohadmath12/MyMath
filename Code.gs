@@ -28,7 +28,8 @@ var SHEET_HEADERS_ = [
   'crm_student_id',
   'crm_sync_error',
   'client_submission_id',
-  'parent_phone'
+  'parent_phone',
+  'trial_conversion_receipt'
 ];
 
 var REQUIRED_FIELDS_ = [
@@ -146,10 +147,8 @@ function doPost(e) {
       throw new Error('Missing request body');
     }
     var body = JSON.parse(e.postData.contents);
-    result = saveRegistration(extractRegistrationPayload_(
-      body,
-      PropertiesService.getScriptProperties()
-    ));
+    var verified = extractRegistrationPayload_(body, PropertiesService.getScriptProperties());
+    result = verified.operation === 'trial_intake' ? forwardTrialIntake_(verified) : saveRegistration(verified);
   } catch (err) {
     console.error('Registration request rejected: ' + String(err && err.message || err));
     result = { ok: false, error: PUBLIC_ERROR_MESSAGE_ };
@@ -215,6 +214,7 @@ function saveRegistration(payload) {
       return buildSuccessResponse_(existingRegistrationId);
     }
 
+    var conversionReceipt = payload.trial_token ? reserveTrialConversion_(payload, normalized) : '';
     registrationId = Utilities.getUuid();
     signatureFile = saveSignature_(registrationId, signatureBlob);
 
@@ -243,7 +243,8 @@ function saveRegistration(payload) {
       crm_student_id: '',
       crm_sync_error: '',
       client_submission_id: normalized.client_submission_id,
-      parent_phone: normalized.parent_phone
+      parent_phone: normalized.parent_phone,
+      trial_conversion_receipt: conversionReceipt
     };
 
     targetRow = appendRegistration_(record);
@@ -586,7 +587,9 @@ function syncRegistrationToCrm_(record, targetRow) {
     parent_role: record.parent_role,
     parent_name: record.parent_name,
     parent_phone: record.parent_phone,
-    parent_email: record.parent_email
+    parent_email: record.parent_email,
+    client_submission_id: record.client_submission_id,
+    trial_conversion_receipt: record.trial_conversion_receipt || ''
   };
 
   var response = UrlFetchApp.fetch(endpoint, {
@@ -713,4 +716,36 @@ function buildSuccessResponse_(registrationId) {
     ok: true,
     registrationId: registrationId
   };
+}
+
+/** Exchange a conversion token for a server-side receipt before writing the sheet. */
+function reserveTrialConversion_(payload, normalized) {
+  if (!/^[a-f0-9]{64}$/.test(String(payload.trial_token))) throw new Error('Invalid conversion token');
+  var props = PropertiesService.getScriptProperties();
+  var endpoint = props.getProperty('CRM_INTAKE_URL');
+  var secret = props.getProperty('CRM_INTAKE_SECRET');
+  if (!endpoint || !secret) throw new Error('CRM integration is not configured');
+  var response = UrlFetchApp.fetch(endpoint, {
+    method:'post',contentType:'application/json',headers:{'x-mythematix-import-secret':secret},muteHttpExceptions:true,
+    payload:JSON.stringify({operation:'reserve_trial_conversion',trial_token:payload.trial_token,
+      client_submission_id:normalized.client_submission_id,student_first_name:normalized.student_first_name,
+      student_last_name:normalized.student_last_name,parent_phone:normalized.parent_phone})
+  });
+  if (response.getResponseCode() !== 200) throw new Error('Conversion verification failed');
+  var result = JSON.parse(response.getContentText());
+  if (!result.ok || !/^[0-9a-f-]{36}$/.test(result.receipt)) throw new Error('Conversion verification failed');
+  return result.receipt;
+}
+
+/** Reuse the existing protected server channel; trials never write registration rows. */
+function forwardTrialIntake_(payload) {
+  var props = PropertiesService.getScriptProperties();
+  var endpoint = props.getProperty('CRM_INTAKE_URL');
+  var secret = props.getProperty('CRM_INTAKE_SECRET');
+  if (!endpoint || !secret) throw new Error('CRM integration is not configured');
+  var response = UrlFetchApp.fetch(endpoint, {method:'post',contentType:'application/json',headers:{'x-mythematix-import-secret':secret},muteHttpExceptions:true,payload:JSON.stringify(payload)});
+  if (response.getResponseCode() !== 200) throw new Error('Trial intake failed');
+  var result = JSON.parse(response.getContentText());
+  if (!result.ok || typeof result.request_id !== 'string') throw new Error('Trial intake failed');
+  return {ok:true,request_id:result.request_id};
 }
