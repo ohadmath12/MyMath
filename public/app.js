@@ -1,5 +1,10 @@
 (function () {
   'use strict';
+  var incomingTrialToken = new URLSearchParams(location.hash.slice(1)).get('trial');
+  if (incomingTrialToken && incomingTrialToken !== sessionStorage.getItem('trial-conversion-token')) sessionStorage.removeItem('trial-conversion-submission');
+  var trialToken = incomingTrialToken || sessionStorage.getItem('trial-conversion-token');
+  if (trialToken) sessionStorage.setItem('trial-conversion-token', trialToken);
+  if (trialToken) history.replaceState(null, '', location.pathname + location.search);
 
   /* Cloudflare validates Turnstile and applies rate limiting before forwarding
      to Apps Script. GitHub Pages gets the public endpoint from config.js. */
@@ -153,7 +158,7 @@
   var successId = document.getElementById('success-id');
 
   var isSubmitting = false;
-  var clientSubmissionId = null;
+  var clientSubmissionId = trialToken ? sessionStorage.getItem('trial-conversion-submission') : null;
   var turnstileWidgetId = null;
   var turnstileToken = '';
 
@@ -370,6 +375,7 @@
     }
 
     if (!clientSubmissionId) clientSubmissionId = createClientSubmissionId();
+    if (trialToken) sessionStorage.setItem('trial-conversion-submission', clientSubmissionId);
 
     var payload = {
       student_first_name: document.getElementById('student_first_name').value,
@@ -388,6 +394,7 @@
       signature_data_url: canvas.toDataURL('image/png'),
       honeypot: document.getElementById('hp-field').value,
       client_submission_id: clientSubmissionId,
+      trial_token: trialToken || undefined,
       turnstile_token: turnstileToken
     };
 
@@ -406,6 +413,9 @@
       .then(function (response) {
         setLoadingState(false);
         if (response && response.ok) {
+          sessionStorage.removeItem('trial-conversion-token');
+          sessionStorage.removeItem('trial-conversion-submission');
+          trialToken = null;
           resetForm();
           showSuccess(response.registrationId);
         } else {

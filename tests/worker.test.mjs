@@ -124,3 +124,13 @@ test('forwards only verified payload with gateway secret', async function () {
   assert.equal(envelope.payload.student_first_name, 'בדיקה');
   assert.equal(Object.hasOwn(envelope.payload, 'turnstile_token'), false);
 });
+
+test('trial route uses trial challenge, trusted operation and allowlisted fields',async()=>{
+ const calls=[];
+ const response=await handleRequest(new Request('https://form.example.test/api/trial',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({turnstile_token:'token',client_submission_id:'12345678-1234-1234-1234-123456789012',student_first_name:'Test',operation:'import_registration',price:1,trial_conversion_receipt:'forged'})}),env({CRM_INTAKE_URL:'https://crm.example.test',CRM_INTAKE_SECRET:'test-secret'}),async(url,options)=>{calls.push([url,options]);return calls.length===1?Response.json({success:true,action:'trial',hostname:'form.example.test'}):Response.json({ok:true,request_id:'request-1'})});
+ assert.equal(response.status,200);assert.equal(calls[1][0],'https://script.example.test/exec');const envelope=JSON.parse(calls[1][1].body);assert.equal(envelope.gateway_secret,'gateway-secret');const payload=envelope.payload;assert.equal(payload.operation,'trial_intake');assert.equal(payload.price,undefined);assert.equal(payload.trial_conversion_receipt,undefined);assert.deepEqual(await response.json(),{ok:true,requestId:'request-1'});
+});
+test('trial relay failure is generic and does not expose infrastructure',async()=>{
+ let calls=0;const response=await handleRequest(new Request('https://form.example.test/api/trial',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({turnstile_token:'token'})}),env(),async()=>{calls++;return calls===1?Response.json({success:true,action:'trial',hostname:'form.example.test'}):Response.json({ok:false,error:'internal'}, {status:500})});assert.equal(response.status,502);assert.equal(calls,2);assert.doesNotMatch(await response.text(),/internal/);
+});
+test('null payload returns controlled error',async()=>{const response=await handleRequest(registrationRequest(null),env());assert.equal(response.status,400)});

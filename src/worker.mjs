@@ -32,7 +32,7 @@ function expectedHostnames(env) {
     .filter(Boolean);
 }
 
-async function validateTurnstile(token, submissionId, request, env, fetchImpl) {
+async function validateTurnstile(token, submissionId, request, env, fetchImpl, action = 'registration') {
   var body = {
     secret: env.TURNSTILE_SECRET,
     response: token,
@@ -52,7 +52,7 @@ async function validateTurnstile(token, submissionId, request, env, fetchImpl) {
   var result = await response.json();
   var allowedHosts = expectedHostnames(env);
   return result.success === true &&
-    result.action === 'registration' &&
+    result.action === action &&
     allowedHosts.indexOf(String(result.hostname || '').toLowerCase()) !== -1;
 }
 
@@ -74,7 +74,8 @@ export async function handleRequest(request, env, fetchImpl) {
     );
   }
 
-  if (url.pathname !== '/api/register') return env.ASSETS.fetch(request);
+  const isTrial = url.pathname === '/api/trial';
+  if (url.pathname !== '/api/register' && !isTrial) return env.ASSETS.fetch(request);
   if (request.method === 'OPTIONS') {
     var corsOrigin = allowedCorsOrigin(request);
     if (!corsOrigin) return new Response(null, { status: 403 });
@@ -113,18 +114,33 @@ export async function handleRequest(request, env, fetchImpl) {
     return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
   }
 
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
+  if (isTrial && raw.length > 8192) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
   var token = String(payload.turnstile_token || '');
   if (!token || token.length > 2048) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
 
   var verified;
   try {
-    verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl);
+    verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl, isTrial ? 'trial' : 'registration');
   } catch (error) {
     return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
   if (!verified) return json({ ok: false, error: PUBLIC_ERROR }, 403, request);
 
   delete payload.turnstile_token;
+  // Public callers cannot select privileged operations or forge an import receipt.
+  delete payload.operation;
+  delete payload.trial_conversion_receipt;
+  if (isTrial) {
+    if (payload.honeypot) return json({ok:true,requestId:crypto.randomUUID()},200,request);
+    const trialPayload = Object.fromEntries(['client_submission_id','student_first_name','student_last_name','class_name','school_name','parent_name','parent_phone'].map(key => [key,payload[key]]));
+    try {
+      const trialResponse = await fetchImpl(env.APPS_SCRIPT_URL, {method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{...trialPayload,operation:'trial_intake'}}),redirect:'follow'});
+      const trialResult = await trialResponse.json();
+      if (!trialResponse.ok || !trialResult.ok || typeof trialResult.request_id !== 'string') throw new Error('intake_failed');
+      return json({ok:true,requestId:trialResult.request_id},200,request);
+    } catch { return json({ok:false,error:PUBLIC_ERROR},502,request); }
+  }
   var upstream;
   try {
     upstream = await fetchImpl(env.APPS_SCRIPT_URL, {
