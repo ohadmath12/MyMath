@@ -152,3 +152,11 @@ test('registration cannot inject a lead receipt or sync operation',async()=>{
  });
  assert.equal(forwarded.operation,undefined);assert.equal(forwarded.lead_conversion_receipt,undefined);
 });
+
+test('public lead route uses challenge, allowlist and does not expose lead ids',async()=>{
+ const calls=[];
+ const request=new Request('https://form.example.test/api/lead-public',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({turnstile_token:'token',parent_name:'Parent',parent_phone:'0500000099',operation:'lead_sheet_export',status:'enrolled',lead_id:'forged'})});
+ const response=await handleRequest(request,env(),async(url,options)=>{calls.push([url,options]);return calls.length===1?Response.json({success:true,action:'lead',hostname:'form.example.test'}):Response.json({ok:true,lead_id:'private'})});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});
+ const p=JSON.parse(calls[1][1].body).payload;assert.equal(p.operation,'public_lead_intake');assert.equal(p.parent_name,'Parent');assert.equal(p.parent_phone,'0500000099');assert.equal(p.status,undefined);assert.equal(p.lead_id,undefined);
+});

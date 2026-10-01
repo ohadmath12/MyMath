@@ -75,7 +75,8 @@ export async function handleRequest(request, env, fetchImpl) {
   }
 
   const isTrial = url.pathname === '/api/trial';
-  const isLead = url.pathname === '/api/lead';
+  const isPublicLead = url.pathname === '/api/lead-public';
+  const isLead = url.pathname === '/api/lead' || isPublicLead;
   if (url.pathname !== '/api/register' && !isTrial && !isLead) return env.ASSETS.fetch(request);
   if (request.method === 'OPTIONS') {
     var corsOrigin = allowedCorsOrigin(request);
@@ -135,9 +136,9 @@ export async function handleRequest(request, env, fetchImpl) {
   delete payload.lead_conversion_receipt;
   if (isLead) {
     if (payload.honeypot) return json({ok:true},200,request);
-    const details = Object.fromEntries(['lead_token','client_submission_id','student_first_name','student_last_name','class_name','school_name','main_need','availability','referral_source','parent_email'].map(key => [key,payload[key]]));
+    const details = Object.fromEntries(['parent_name','parent_phone','lead_token','client_submission_id','student_first_name','student_last_name','class_name','school_name','main_need','availability','referral_source','parent_email'].map(key => [key,payload[key]]));
     try {
-      const response = await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{...details,operation:'lead_details'}}),redirect:'follow'});
+      const response = await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{...details,operation:isPublicLead?'public_lead_intake':'lead_details'}}),redirect:'follow'});
       const result = await response.json();
       if(!response.ok || !result.ok) throw new Error('intake_failed');
       return json({ok:true},200,request);

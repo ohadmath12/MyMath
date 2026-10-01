@@ -149,7 +149,7 @@ function doPost(e) {
     }
     var body = JSON.parse(e.postData.contents);
     var verified = extractRegistrationPayload_(body, PropertiesService.getScriptProperties());
-    result = verified.operation === 'lead_details' ? forwardLeadRequest_(verified) : verified.operation === 'trial_intake' ? forwardTrialIntake_(verified) : saveRegistration(verified);
+    result = (verified.operation === 'lead_details' || verified.operation === 'public_lead_intake') ? forwardLeadRequest_(verified) : verified.operation === 'trial_intake' ? forwardTrialIntake_(verified) : saveRegistration(verified);
   } catch (err) {
     console.error('Registration request rejected: ' + String(err && err.message || err));
     result = { ok: false, error: PUBLIC_ERROR_MESSAGE_ };
