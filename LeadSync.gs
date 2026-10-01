@@ -59,7 +59,8 @@ function syncLeadsToExistingSheet() {
       if(sheet.getMaxColumns()<23)sheet.insertColumnsAfter(sheet.getMaxColumns(),23-sheet.getMaxColumns());
       // Force text for phone and untrusted input; apostrophe prevents formula injection.
       var values=item.values.map(function(v){if(v===null||v===undefined)return '';if(typeof v==='string'&&/^[=+@\-]/.test(v))return "'"+v;return v;});
-      sheet.getRange(row,5).setNumberFormat('@');
+      sheet.getRange(row,1,1,23).setNumberFormat('@');
+      sheet.getRange(row,22).setNumberFormat('0');
       [2,16,17].forEach(function(col){sheet.getRange(row,col).setNumberFormat('dd/MM/yyyy');});
       sheet.getRange(row,1,1,23).setValues([values]);
       SpreadsheetApp.flush();

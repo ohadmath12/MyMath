@@ -3,6 +3,7 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const path=require('node:path');
 let writes=0,acks=[],failedAck=true;
+const formats=new Map();
 const grid=Array.from({length:6},()=>Array(23).fill(''));
 const ctx=vm.createContext({console,Date,PropertiesService:{getScriptProperties:()=>({getProperty:k=>k==='LEAD_CRM_SHEET_ID'?'1800000004':'true'})},LockService:{getScriptLock:()=>({tryLock:()=>true,releaseLock(){}})},Utilities:{formatDate:d=>d.toISOString().slice(0,10)}});
 vm.runInContext(fs.readFileSync(path.join(__dirname,'../LeadSync.gs'),'utf8'),ctx);
@@ -12,8 +13,8 @@ const fresh=[...existing];fresh[0]='L-new';
 const sheet={getSheetId:()=>1800000004,getName:()=> 'לידים CRM',getLastRow:()=>grid.length,getMaxColumns:()=>23,getRange(row,col,n=1,m=1){return {
  getDisplayValues:()=>Array.from({length:n},(_,i)=>Array.from({length:m},(_,j)=>String(grid[row-1+i]?.[col-1+j]??''))),
  getValues:()=>Array.from({length:n},(_,i)=>Array.from({length:m},(_,j)=>grid[row-1+i]?.[col-1+j]??'')),
- setNumberFormat(){return this},
- setValues(rows){writes++;rows.forEach((r,i)=>{grid[row-1+i]??=Array(23).fill('');r.forEach((v,j)=>{grid[row-1+i][col-1+j]=typeof v==='string'&&v.startsWith("'")?v.slice(1):v;});});return this}
+ setNumberFormat(format){for(let i=0;i<n;i++)for(let j=0;j<m;j++)formats.set(`${row+i}:${col+j}`,format);return this},
+ setValues(rows){writes++;rows.forEach((r,i)=>{grid[row-1+i]??=Array(23).fill('');r.forEach((v,j)=>{if(typeof v==='string'&&/^\d{2}\/\d{2}\/\d{4}/.test(v)&&formats.get(`${row+i}:${col+j}`)!=='@')v=new Date('2026-10-01T17:00:00Z');grid[row-1+i][col-1+j]=typeof v==='string'&&v.startsWith("'")?v.slice(1):v;});});return this}
 }}};
 ctx.SpreadsheetApp={openById:id=>{assert.equal(id,ctx.LEAD_WORKBOOK_ID_);return {getSheets:()=>[sheet]}},flush(){}};
 ctx.forwardLeadRequest_=payload=>{
@@ -23,7 +24,7 @@ ctx.forwardLeadRequest_=payload=>{
 assert.throws(()=>ctx.syncLeadsToExistingSheet(),/network/);
 ctx.syncLeadsToExistingSheet();ctx.syncLeadsToExistingSheet();
 assert.equal(grid.length,7);assert.equal(grid[5][0],'L-existing');assert.equal(grid[6][0],'L-new');
-assert.equal(grid[5][17],existing[17]);assert.equal(acks.length,4);
+assert.equal(grid[5][22],existing[22]);assert.equal(grid[5][17],existing[17]);assert.equal(acks.length,4);
 assert.equal(ctx.leadSheetValue_(new Date('2026-10-01T00:00:00Z')),46296);
 const before=writes;grid.push(['unimported']);assert.throws(()=>ctx.syncLeadsToExistingSheet(),/Unknown/);assert.equal(writes,before);
 grid.pop();grid.push(['L-existing']);assert.throws(()=>ctx.syncLeadsToExistingSheet(),/Duplicate sheet ID/);assert.equal(writes,before);
