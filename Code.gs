@@ -29,7 +29,8 @@ var SHEET_HEADERS_ = [
   'crm_sync_error',
   'client_submission_id',
   'parent_phone',
-  'trial_conversion_receipt'
+  'trial_conversion_receipt',
+  'lead_conversion_receipt'
 ];
 
 var REQUIRED_FIELDS_ = [
@@ -148,7 +149,7 @@ function doPost(e) {
     }
     var body = JSON.parse(e.postData.contents);
     var verified = extractRegistrationPayload_(body, PropertiesService.getScriptProperties());
-    result = verified.operation === 'trial_intake' ? forwardTrialIntake_(verified) : saveRegistration(verified);
+    result = verified.operation === 'lead_details' ? forwardLeadRequest_(verified) : verified.operation === 'trial_intake' ? forwardTrialIntake_(verified) : saveRegistration(verified);
   } catch (err) {
     console.error('Registration request rejected: ' + String(err && err.message || err));
     result = { ok: false, error: PUBLIC_ERROR_MESSAGE_ };
@@ -214,6 +215,8 @@ function saveRegistration(payload) {
       return buildSuccessResponse_(existingRegistrationId);
     }
 
+    if (payload.trial_token && payload.lead_token) throw new Error('Conflicting conversion tokens');
+    var leadReceipt = payload.lead_token ? reserveLeadRegistration_(payload, normalized) : '';
     var conversionReceipt = payload.trial_token ? reserveTrialConversion_(payload, normalized) : '';
     registrationId = Utilities.getUuid();
     signatureFile = saveSignature_(registrationId, signatureBlob);
@@ -244,7 +247,8 @@ function saveRegistration(payload) {
       crm_sync_error: '',
       client_submission_id: normalized.client_submission_id,
       parent_phone: normalized.parent_phone,
-      trial_conversion_receipt: conversionReceipt
+      trial_conversion_receipt: conversionReceipt,
+      lead_conversion_receipt: leadReceipt
     };
 
     targetRow = appendRegistration_(record);
@@ -589,7 +593,8 @@ function syncRegistrationToCrm_(record, targetRow) {
     parent_phone: record.parent_phone,
     parent_email: record.parent_email,
     client_submission_id: record.client_submission_id,
-    trial_conversion_receipt: record.trial_conversion_receipt || ''
+    trial_conversion_receipt: record.trial_conversion_receipt || '',
+    lead_conversion_receipt: record.lead_conversion_receipt || ''
   };
 
   var response = UrlFetchApp.fetch(endpoint, {
@@ -748,4 +753,21 @@ function forwardTrialIntake_(payload) {
   var result = JSON.parse(response.getContentText());
   if (!result.ok || typeof result.request_id !== 'string') throw new Error('Trial intake failed');
   return {ok:true,request_id:result.request_id};
+}
+
+function forwardLeadRequest_(payload) {
+  var props = PropertiesService.getScriptProperties();
+  var endpoint = props.getProperty('CRM_INTAKE_URL'), secret = props.getProperty('CRM_INTAKE_SECRET');
+  if (!endpoint || !secret) throw new Error('CRM integration is not configured');
+  var response = UrlFetchApp.fetch(endpoint, {method:'post',contentType:'application/json',headers:{'x-mythematix-import-secret':secret},muteHttpExceptions:true,payload:JSON.stringify(payload)});
+  if (response.getResponseCode() !== 200) throw new Error('Lead request failed');
+  var result = JSON.parse(response.getContentText());
+  if (!result.ok) throw new Error('Lead request failed');
+  return result;
+}
+function reserveLeadRegistration_(payload, normalized) {
+  if (!/^[a-f0-9]{64}$/.test(String(payload.lead_token))) throw new Error('Invalid lead token');
+  var result = forwardLeadRequest_({operation:'reserve_lead_registration',lead_token:payload.lead_token,client_submission_id:normalized.client_submission_id,student_first_name:normalized.student_first_name,student_last_name:normalized.student_last_name,parent_phone:normalized.parent_phone});
+  if (!/^[0-9a-f-]{36}$/.test(result.receipt)) throw new Error('Invalid lead receipt');
+  return result.receipt;
 }

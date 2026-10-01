@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'Code.gs'
+      - 'LeadSync.gs'
       - 'appsscript.json'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:

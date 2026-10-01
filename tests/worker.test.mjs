@@ -134,3 +134,21 @@ test('trial relay failure is generic and does not expose infrastructure',async()
  let calls=0;const response=await handleRequest(new Request('https://form.example.test/api/trial',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({turnstile_token:'token'})}),env(),async()=>{calls++;return calls===1?Response.json({success:true,action:'trial',hostname:'form.example.test'}):Response.json({ok:false,error:'internal'}, {status:500})});assert.equal(response.status,502);assert.equal(calls,2);assert.doesNotMatch(await response.text(),/internal/);
 });
 test('null payload returns controlled error',async()=>{const response=await handleRequest(registrationRequest(null),env());assert.equal(response.status,400)});
+
+test('lead route forwards only details and strips forged identities and receipts',async()=>{
+ const calls=[];
+ const request=new Request('https://form.example.test/api/lead',{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({turnstile_token:'token',lead_token:'a'.repeat(64),client_submission_id:'12345678-1234-1234-1234-123456789012',student_first_name:'Test',lead_id:'forged',student_id:'forged',status:'enrolled',operation:'lead_sheet_export',lead_conversion_receipt:'forged'})});
+ const response=await handleRequest(request,env(),async(url,options)=>{calls.push([url,options]);return calls.length===1?Response.json({success:true,action:'lead',hostname:'form.example.test'}):Response.json({ok:true,private:'not public'})});
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});
+ const p=JSON.parse(calls[1][1].body).payload;
+ assert.equal(p.operation,'lead_details');assert.equal(p.lead_token,'a'.repeat(64));
+ for(const key of ['lead_id','student_id','status','lead_conversion_receipt'])assert.equal(p[key],undefined);
+});
+test('registration cannot inject a lead receipt or sync operation',async()=>{
+ let forwarded;
+ await handleRequest(registrationRequest({turnstile_token:'token',operation:'lead_sheet_ack',lead_conversion_receipt:'forged'}),env(),async(url,options)=>{
+  if(url.includes('siteverify'))return Response.json({success:true,action:'registration',hostname:'form.example.test'});
+  forwarded=JSON.parse(options.body).payload;return Response.json({ok:true,registrationId:'test'});
+ });
+ assert.equal(forwarded.operation,undefined);assert.equal(forwarded.lead_conversion_receipt,undefined);
+});

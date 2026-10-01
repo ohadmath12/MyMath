@@ -74,3 +74,13 @@ context.syncRegistrationToCrm_({...normalized,registration_id:'reg',trial_conver
 const sent=JSON.parse(calls[1].options.payload);
 assert.equal(sent.trial_conversion_receipt,receipt);assert.equal(sent.client_submission_id,normalized.client_submission_id);assert.equal(sent.trial_token,undefined);assert.equal(sync[1],'synced');
 console.log('Conversion receipt exchange and retry payload tests passed; no token persisted to Sheets.');
+
+assert.equal(context.SHEET_HEADERS_[26],'lead_conversion_receipt');
+context.UrlFetchApp.fetch=(url,options)=>{calls.push({url,options});return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({ok:true,receipt})}};
+assert.equal(context.reserveLeadRegistration_({lead_token:'b'.repeat(64)},normalized),receipt);
+assert.equal(JSON.parse(calls.at(-1).options.payload).operation,'reserve_lead_registration');
+context.UrlFetchApp.fetch=(url,options)=>{calls.push({url,options});return {getResponseCode:()=>200,getContentText:()=>JSON.stringify({ok:true,registration_id:'reg',student_id:'student'})}};
+context.syncRegistrationToCrm_({...normalized,registration_id:'reg',lead_conversion_receipt:receipt},2);
+const leadPayload=JSON.parse(calls.at(-1).options.payload);
+assert.equal(leadPayload.lead_conversion_receipt,receipt);assert.equal(leadPayload.lead_token,undefined);
+console.log('Lead receipt round-trip preserves the existing registration control columns.');

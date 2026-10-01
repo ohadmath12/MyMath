@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>MyTheMatix · השלמת פרטים</title><link rel="stylesheet" href="lead.css"><script src="../config.js" defer></script><script src="lead.js" defer></script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=leadTurnstileReady&render=explicit" defer></script></head>
+<body><main><p class="brand" dir="ltr">MyTheMatix.</p><h1>נכיר קצת יותר</h1><p>בהמשך לשיחה שלנו, כמה פרטים שיעזרו להתאים את הלמידה לילד או לילדה שלכם.</p>
+<form id="lead-form"><div class="grid">
+<label>שם פרטי של התלמיד/ה *<input name="student_first_name" maxlength="60" required autocomplete="off"></label>
+<label>שם משפחה *<input name="student_last_name" maxlength="60" required autocomplete="off"></label>
+<label>כיתה *<select name="class_name" required><option value="">בחירת כיתה</option><option>ד</option><option>ה</option><option>ו</option><option>ז</option><option>ח</option><option>ט</option><option>י</option><option>י״א</option><option>י״ב</option></select></label>
+<label>בית ספר *<input name="school_name" maxlength="80" required></label>
+<label>במה הכי חשוב לכם שנתמקד? *<input name="main_need" maxlength="1000" required placeholder="למשל: ביטחון במתמטיקה, חיזוק יסודות, הכנה למבחן"></label>
+<label>באילו ימים ושעות נוח לכם? *<input name="availability" maxlength="500" required placeholder="למשל: ראשון ושלישי אחרי 16:00"></label>
+<label>איך שמעתם עלינו? *<input name="referral_source" maxlength="100" required placeholder="למשל: המלצה, קבוצת הורים, חיפוש"></label>
+<label>דוא״ל של ההורה <span>(לא חובה)</span><input name="parent_email" type="email" maxlength="254" dir="ltr" autocomplete="email"></label>
+</div><div class="trap" aria-hidden="true"><label>השאירו ריק<input name="honeypot" tabindex="-1" autocomplete="off"></label></div>
+<p class="note">הפרטים מיועדים להמשך התיאום איתכם. מילוי הטופס אינו הרשמה לתוכנית או אישור לשיעור ניסיון.</p><div id="turnstile"></div><button id="submit" disabled>שמירת הפרטים</button></form><p id="message" role="status" aria-live="polite"></p></main></body></html>

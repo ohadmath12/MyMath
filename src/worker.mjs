@@ -75,7 +75,8 @@ export async function handleRequest(request, env, fetchImpl) {
   }
 
   const isTrial = url.pathname === '/api/trial';
-  if (url.pathname !== '/api/register' && !isTrial) return env.ASSETS.fetch(request);
+  const isLead = url.pathname === '/api/lead';
+  if (url.pathname !== '/api/register' && !isTrial && !isLead) return env.ASSETS.fetch(request);
   if (request.method === 'OPTIONS') {
     var corsOrigin = allowedCorsOrigin(request);
     if (!corsOrigin) return new Response(null, { status: 403 });
@@ -115,13 +116,13 @@ export async function handleRequest(request, env, fetchImpl) {
   }
 
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
-  if (isTrial && raw.length > 8192) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
+  if ((isTrial || isLead) && raw.length > 8192) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
   var token = String(payload.turnstile_token || '');
   if (!token || token.length > 2048) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
 
   var verified;
   try {
-    verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl, isTrial ? 'trial' : 'registration');
+    verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl, isLead ? 'lead' : isTrial ? 'trial' : 'registration');
   } catch (error) {
     return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
@@ -131,6 +132,17 @@ export async function handleRequest(request, env, fetchImpl) {
   // Public callers cannot select privileged operations or forge an import receipt.
   delete payload.operation;
   delete payload.trial_conversion_receipt;
+  delete payload.lead_conversion_receipt;
+  if (isLead) {
+    if (payload.honeypot) return json({ok:true},200,request);
+    const details = Object.fromEntries(['lead_token','client_submission_id','student_first_name','student_last_name','class_name','school_name','main_need','availability','referral_source','parent_email'].map(key => [key,payload[key]]));
+    try {
+      const response = await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{...details,operation:'lead_details'}}),redirect:'follow'});
+      const result = await response.json();
+      if(!response.ok || !result.ok) throw new Error('intake_failed');
+      return json({ok:true},200,request);
+    } catch { return json({ok:false,error:PUBLIC_ERROR},502,request); }
+  }
   if (isTrial) {
     if (payload.honeypot) return json({ok:true,requestId:crypto.randomUUID()},200,request);
     const trialPayload = Object.fromEntries(['client_submission_id','student_first_name','student_last_name','class_name','school_name','parent_name','parent_phone'].map(key => [key,payload[key]]));

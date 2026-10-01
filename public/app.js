@@ -1,10 +1,18 @@
 (function () {
   'use strict';
+  var incomingLeadToken = new URLSearchParams(location.hash.slice(1)).get('lead');
+  if (incomingLeadToken) {
+    if (incomingLeadToken !== sessionStorage.getItem('lead-conversion-token')) sessionStorage.removeItem('trial-conversion-submission');
+    sessionStorage.setItem('lead-conversion-token', incomingLeadToken);
+    sessionStorage.removeItem('trial-conversion-token');
+  }
+  var leadToken = incomingLeadToken || sessionStorage.getItem('lead-conversion-token');
   var incomingTrialToken = new URLSearchParams(location.hash.slice(1)).get('trial');
   if (incomingTrialToken && incomingTrialToken !== sessionStorage.getItem('trial-conversion-token')) sessionStorage.removeItem('trial-conversion-submission');
   var trialToken = incomingTrialToken || sessionStorage.getItem('trial-conversion-token');
   if (trialToken) sessionStorage.setItem('trial-conversion-token', trialToken);
-  if (trialToken) history.replaceState(null, '', location.pathname + location.search);
+  if (incomingTrialToken) { leadToken = null; sessionStorage.removeItem('lead-conversion-token'); }
+  if (trialToken || leadToken) history.replaceState(null, '', location.pathname + location.search);
 
   /* Cloudflare validates Turnstile and applies rate limiting before forwarding
      to Apps Script. GitHub Pages gets the public endpoint from config.js. */
@@ -158,7 +166,7 @@
   var successId = document.getElementById('success-id');
 
   var isSubmitting = false;
-  var clientSubmissionId = trialToken ? sessionStorage.getItem('trial-conversion-submission') : null;
+  var clientSubmissionId = (trialToken || leadToken) ? sessionStorage.getItem('trial-conversion-submission') : null;
   var turnstileWidgetId = null;
   var turnstileToken = '';
 
@@ -375,7 +383,7 @@
     }
 
     if (!clientSubmissionId) clientSubmissionId = createClientSubmissionId();
-    if (trialToken) sessionStorage.setItem('trial-conversion-submission', clientSubmissionId);
+    if (trialToken || leadToken) sessionStorage.setItem('trial-conversion-submission', clientSubmissionId);
 
     var payload = {
       student_first_name: document.getElementById('student_first_name').value,
@@ -395,6 +403,7 @@
       honeypot: document.getElementById('hp-field').value,
       client_submission_id: clientSubmissionId,
       trial_token: trialToken || undefined,
+      lead_token: leadToken || undefined,
       turnstile_token: turnstileToken
     };
 
@@ -416,6 +425,8 @@
           sessionStorage.removeItem('trial-conversion-token');
           sessionStorage.removeItem('trial-conversion-submission');
           trialToken = null;
+          leadToken = null;
+          sessionStorage.removeItem('lead-conversion-token');
           resetForm();
           showSuccess(response.registrationId);
         } else {
