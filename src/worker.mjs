@@ -1,3 +1,4 @@
+import { marathonRequest } from './marathon.mjs';
 const MAX_REQUEST_CHARS = 2100000;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const PUBLIC_ERROR = 'לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.';
@@ -73,6 +74,8 @@ export async function handleRequest(request, env, fetchImpl) {
       }
     );
   }
+
+  if (url.pathname === '/api/marathons' || url.pathname === '/api/marathon') return marathonRequest(request, env, fetchImpl, { json, validateTurnstile, publicError: PUBLIC_ERROR });
 
   const isTrial = url.pathname === '/api/trial';
   const isPublicLead = url.pathname === '/api/lead-public';
