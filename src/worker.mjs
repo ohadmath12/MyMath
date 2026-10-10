@@ -3,10 +3,11 @@ const MAX_REQUEST_CHARS = 2100000;
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const PUBLIC_ERROR = 'לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.';
 const GITHUB_PAGES_ORIGIN = 'https://ohadmath12.github.io';
+const NETWORK_ORIGIN = 'https://mythematix-network.ohadlavon1.chatgpt.site';
 
 function allowedCorsOrigin(request) {
   var origin = request.headers.get('Origin') || '';
-  return origin === GITHUB_PAGES_ORIGIN ? origin : '';
+  return origin === GITHUB_PAGES_ORIGIN || (new URL(request.url).pathname === '/api/network-lead' && origin === NETWORK_ORIGIN) ? origin : '';
 }
 
 function json(body, status, request) {
@@ -52,6 +53,7 @@ async function validateTurnstile(token, submissionId, request, env, fetchImpl, a
 
   var result = await response.json();
   var allowedHosts = expectedHostnames(env);
+  if(action === 'network_lead') allowedHosts = [new URL(NETWORK_ORIGIN).hostname];
   return result.success === true &&
     result.action === action &&
     allowedHosts.indexOf(String(result.hostname || '').toLowerCase()) !== -1;
@@ -78,8 +80,9 @@ export async function handleRequest(request, env, fetchImpl) {
   if (url.pathname === '/api/marathons' || url.pathname === '/api/marathon') return marathonRequest(request, env, fetchImpl, { json, validateTurnstile, publicError: PUBLIC_ERROR });
 
   const isTrial = url.pathname === '/api/trial';
+  const isNetworkLead = url.pathname === '/api/network-lead';
   const isPublicLead = url.pathname === '/api/lead-public';
-  const isLead = url.pathname === '/api/lead' || isPublicLead;
+  const isLead = url.pathname === '/api/lead' || isPublicLead || isNetworkLead;
   if (url.pathname !== '/api/register' && !isTrial && !isLead) return env.ASSETS.fetch(request);
   if (request.method === 'OPTIONS') {
     var corsOrigin = allowedCorsOrigin(request);
@@ -96,6 +99,7 @@ export async function handleRequest(request, env, fetchImpl) {
     });
   }
   if (request.method !== 'POST') return json({ ok: false, error: PUBLIC_ERROR }, 405, request);
+  if(isNetworkLead && request.headers.get('Origin') !== NETWORK_ORIGIN) return json({ok:false,error:PUBLIC_ERROR},403,request);
 
   var contentType = request.headers.get('Content-Type') || '';
   if (contentType.indexOf('application/json') !== 0 && contentType.indexOf('text/plain') !== 0) {
@@ -126,7 +130,7 @@ export async function handleRequest(request, env, fetchImpl) {
 
   var verified;
   try {
-    verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl, isLead ? 'lead' : isTrial ? 'trial' : 'registration');
+    verified = await validateTurnstile(token, payload.client_submission_id, request, env, fetchImpl, isNetworkLead ? 'network_lead' : isLead ? 'lead' : isTrial ? 'trial' : 'registration');
   } catch (error) {
     return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
@@ -140,8 +144,12 @@ export async function handleRequest(request, env, fetchImpl) {
   if (isLead) {
     if (payload.honeypot) return json({ok:true},200,request);
     const details = Object.fromEntries(['parent_name','parent_phone','lead_token','client_submission_id','student_first_name','student_last_name','class_name','school_name','main_need','availability','referral_source','parent_email'].map(key => [key,payload[key]]));
+    if(isNetworkLead) {
+      if(!['גני תקווה','פתח תקווה — רונן רחמאני','פתח תקווה — בן יחזקאל'].includes(payload.branch))return json({ok:false,error:PUBLIC_ERROR},400,request);
+      details.branch=payload.branch;
+    }
     try {
-      const response = await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{...details,operation:isPublicLead?'public_lead_intake':'lead_details'}}),redirect:'follow'});
+      const response = await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{...details,operation:isNetworkLead?'network_lead_intake':isPublicLead?'public_lead_intake':'lead_details'}}),redirect:'follow'});
       const result = await response.json();
       if(!response.ok || !result.ok) throw new Error('intake_failed');
       return json({ok:true},200,request);

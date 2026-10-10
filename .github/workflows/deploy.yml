@@ -6,6 +6,7 @@ on:
     paths:
       - 'Code.gs'
       - 'LeadSync.gs'
+      - 'NetworkLead.gs'
       - 'appsscript.json'
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
