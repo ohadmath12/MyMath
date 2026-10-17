@@ -19,6 +19,6 @@ form.addEventListener('submit',async event=>{
   const endpoint=new URL(window.MYTHEMATIX_CONFIG?.apiEndpoint||'../api/register',location.href);endpoint.pathname=endpoint.pathname.replace(/\/register$/,'/trial');
   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
   const result=await response.json();if(!response.ok||!result.ok)throw new Error('failed');
-  form.hidden=true;sessionStorage.removeItem('mythematix-trial-submission');message.textContent='הפרטים נקלטו. נתאם איתכם את מועד שיעור הניסיון ונשלח קישור לתשלום מראש.\nהשיבוץ והתשלום טרם אושרו.';
+  form.hidden=true;sessionStorage.removeItem('mythematix-trial-submission');message.textContent='הפרטים נקלטו. ניצור איתכם קשר לתיאום שיעור הניסיון.\nהשיבוץ יושלם לאחר אישור המועד.';
  }catch{message.textContent='לא הצלחנו לאשר את הקליטה. נסו שוב עם אותם פרטים או פנו אלינו. אין צורך למלא בקשה חדשה.';challenge='';window.turnstile.reset(widget)}finally{pending=false;button.disabled=!challenge}
 });
