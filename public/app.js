@@ -169,6 +169,43 @@
   var clientSubmissionId = (trialToken || leadToken) ? sessionStorage.getItem('trial-conversion-submission') : null;
   var turnstileWidgetId = null;
   var turnstileToken = '';
+  var prefillState = leadToken ? 'pending' : 'none';
+  var prefillNotice = document.createElement('p');
+  prefillNotice.setAttribute('role', 'status');
+  form.prepend(prefillNotice);
+  if (leadToken) prefillNotice.textContent = 'טוענים את הפרטים שכבר מסרתם…';
+  var editedPrefillFields = new Set();
+  form.addEventListener('input', function (event) { editedPrefillFields.add(event.target.id); });
+  form.addEventListener('change', function (event) { editedPrefillFields.add(event.target.id); });
+
+  async function loadLeadPrefill(challenge) {
+    prefillState = 'loading';
+    turnstileToken = '';
+    try {
+      var response = await fetch(ENDPOINT.replace(/\/register$/, '/registration-prefill'), {
+        method: 'POST', headers: {'Content-Type':'text/plain;charset=utf-8'}, cache:'no-store',
+        body: JSON.stringify({lead_token:leadToken, turnstile_token:challenge}),
+        signal: AbortSignal.timeout(25000)
+      });
+      var result = await response.json();
+      if (!response.ok || result.ok !== true || !result.fields) throw new Error('prefill_failed');
+      ['parent_name','parent_phone','parent_email','student_first_name','student_last_name','class_name','school_name'].forEach(function (key) {
+        var field = document.getElementById(key), value = result.fields[key];
+        if (!field || editedPrefillFields.has(key) || field.value || typeof value !== 'string' || !value) return;
+        if (field.tagName === 'SELECT' && !Array.from(field.options).some(function(option){return option.value === value;})) {
+          if (key !== 'school_name') return;
+          field.add(new Option(value, value));
+        }
+        field.value = value;
+      });
+      prefillState = 'ready';
+      prefillNotice.textContent = 'הפרטים שכבר מסרתם מולאו. בדקו אותם והשלימו את השדות שנותרו.';
+    } catch (error) {
+      prefillState = 'failed';
+      prefillNotice.textContent = 'לא הצלחנו לטעון את פרטי ההרשמה. רעננו את העמוד; אם הבעיה נמשכת, בקשו מאיתנו קישור אישי חדש.';
+    } finally { resetTurnstile(); }
+  }
+
 
   function createClientSubmissionId() {
     if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
@@ -188,6 +225,7 @@
       theme: 'light',
       size: 'flexible',
       callback: function (token) {
+        if (prefillState === 'pending') { loadLeadPrefill(token); return; }
         turnstileToken = token;
         clearFieldError('turnstile');
       },
@@ -370,6 +408,7 @@
     evt.preventDefault();
 
     if (isSubmitting) return;
+    if (leadToken && prefillState !== 'ready') { showFormError(prefillNotice.textContent); return; }
 
     clearAllErrors();
 

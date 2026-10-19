@@ -160,3 +160,20 @@ test('public lead route uses challenge, allowlist and does not expose lead ids',
  assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});
  const p=JSON.parse(calls[1][1].body).payload;assert.equal(p.operation,'public_lead_intake');assert.equal(p.parent_name,'Parent');assert.equal(p.parent_phone,'0500000099');assert.equal(p.status,undefined);assert.equal(p.lead_id,undefined);
 });
+
+test('prefill validates challenge, pins operation/token and exposes only form fields without caching', async () => {
+  const req = body => new Request('https://form.example.test/api/registration-prefill',{method:'POST',headers:{'Content-Type':'text/plain','Origin':'https://ohadmath12.github.io'},body:JSON.stringify(body)});
+  let calls=0;
+  const fetcher=async(url,options)=>{
+    calls++;
+    if(url.includes('siteverify'))return Response.json({success:true,action:'registration',hostname:'form.example.test'});
+    const body=JSON.parse(options.body);
+    assert.deepEqual(body.payload,{operation:'lead_registration_prefill',lead_token:'a'.repeat(64)});
+    return Response.json({ok:true,fields:{parent_name:'Example',student_first_name:'Student',internal_id:'private'},receipt:'private'});
+  };
+  const response=await handleRequest(req({lead_token:'a'.repeat(64),turnstile_token:'challenge',operation:'lead_sheet_export',lead_id:'forged'}),env(),fetcher);
+  assert.equal(response.status,200);assert.equal(response.headers.get('Cache-Control'),'no-store');
+  const data=await response.json();assert.equal(data.fields.parent_name,'Example');assert.equal(data.fields.internal_id,undefined);assert.equal(data.receipt,undefined);assert.equal(calls,2);
+  const invalid=await handleRequest(req({lead_token:'bad',turnstile_token:'challenge'}),env(),fetcher);assert.equal(invalid.status,400);
+  const denied=await handleRequest(req({lead_token:'a'.repeat(64),turnstile_token:'challenge'}),env(),async()=>Response.json({success:false}));assert.equal(denied.status,403);
+});

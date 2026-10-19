@@ -79,11 +79,12 @@ export async function handleRequest(request, env, fetchImpl) {
 
   if (url.pathname === '/api/marathons' || url.pathname === '/api/marathon') return marathonRequest(request, env, fetchImpl, { json, validateTurnstile, publicError: PUBLIC_ERROR });
 
+  const isPrefill = url.pathname === '/api/registration-prefill';
   const isTrial = url.pathname === '/api/trial';
   const isNetworkLead = url.pathname === '/api/network-lead';
   const isPublicLead = url.pathname === '/api/lead-public';
   const isLead = url.pathname === '/api/lead' || isPublicLead || isNetworkLead;
-  if (url.pathname !== '/api/register' && !isTrial && !isLead) return env.ASSETS.fetch(request);
+  if (url.pathname !== '/api/register' && !isTrial && !isLead && !isPrefill) return env.ASSETS.fetch(request);
   if (request.method === 'OPTIONS') {
     var corsOrigin = allowedCorsOrigin(request);
     if (!corsOrigin) return new Response(null, { status: 403 });
@@ -124,7 +125,7 @@ export async function handleRequest(request, env, fetchImpl) {
   }
 
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
-  if ((isTrial || isLead) && raw.length > 8192) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
+  if ((isTrial || isLead || isPrefill) && raw.length > 8192) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
   var token = String(payload.turnstile_token || '');
   if (!token || token.length > 2048) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
 
@@ -136,6 +137,16 @@ export async function handleRequest(request, env, fetchImpl) {
   }
   if (!verified) return json({ ok: false, error: PUBLIC_ERROR }, 403, request);
 
+  if (isPrefill) {
+    if (!/^[a-f0-9]{64}$/.test(String(payload.lead_token || ''))) return json({ok:false,error:PUBLIC_ERROR},400,request);
+    try {
+      const response = await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:{operation:'lead_registration_prefill',lead_token:payload.lead_token}}),redirect:'follow'});
+      const result = await response.json();
+      if (!response.ok || result.ok !== true || !result.fields) throw new Error('prefill_failed');
+      const fields = Object.fromEntries(['parent_name','parent_phone','parent_email','student_first_name','student_last_name','class_name','school_name'].map(key => [key,typeof result.fields[key] === 'string' ? result.fields[key] : '']));
+      return json({ok:true,fields},200,request);
+    } catch { return json({ok:false,error:PUBLIC_ERROR},502,request); }
+  }
   delete payload.turnstile_token;
   // Public callers cannot select privileged operations or forge an import receipt.
   delete payload.operation;
