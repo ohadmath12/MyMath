@@ -84,3 +84,12 @@ context.syncRegistrationToCrm_({...normalized,registration_id:'reg',lead_convers
 const leadPayload=JSON.parse(calls.at(-1).options.payload);
 assert.equal(leadPayload.lead_conversion_receipt,receipt);assert.equal(leadPayload.lead_token,undefined);
 console.log('Lead receipt round-trip preserves the existing registration control columns.');
+
+// Prefilled short school names must pass the same validation as dropdown values.
+assert.equal(context.normalizeSchoolName_('תיכון מיתר'), 'תיכון מיתר, גני תקווה');
+assert.equal(context.normalizeSchoolName_('תיכון מיתר, גני תקווה'), 'תיכון מיתר, גני תקווה');
+assert.equal(context.normalizeSchoolName_('Unknown school'), 'Unknown school');
+const prefilled = context.normalizePayload_({school_name:'תיכון מיתר', class_name:'י', units:'5 יח״ל', parent_email:'parent@example.com',student_id:'123456782',student_phone:'0500000000',parent_phone:'0500000000',client_submission_id:'10000000-0000-4000-8000-000000000001'});
+assert.doesNotThrow(() => context.validateNormalizedPayload_(prefilled));
+assert.throws(() => context.validateNormalizedPayload_({...prefilled,school_name:'Unknown school'}));
+console.log('Prefilled school normalization passes registration validation.');

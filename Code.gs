@@ -312,6 +312,7 @@ function normalizePayload_(payload) {
     normalized[key] = sanitizeText_(payload[key], FIELD_MAX_LENGTHS_[key]);
   });
 
+  normalized.school_name = normalizeSchoolName_(normalized.school_name);
   normalized.student_phone = normalizeIsraeliMobilePhone_(normalized.student_phone);
   normalized.parent_phone = normalized.parent_phone
     ? normalizeIsraeliMobilePhone_(normalized.parent_phone)
@@ -326,6 +327,15 @@ function normalizePayload_(payload) {
  * Validates normalized fields that must never rely on browser controls alone.
  * @param {Object} normalized
  */
+function normalizeSchoolName_(value) {
+  // Lead intake can store the school without the city suffix.
+  if (ALLOWED_SCHOOLS_.indexOf(value) !== -1) return value;
+  var matches = ALLOWED_SCHOOLS_.filter(function (school) {
+    return school.split(',')[0].trim() === value;
+  });
+  return matches.length === 1 ? matches[0] : value;
+}
+
 function validateNormalizedPayload_(normalized) {
   if (!isValidEmail_(normalized.parent_email)) {
     throw new Error('Invalid parent email');
