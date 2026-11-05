@@ -1,4 +1,4 @@
-const FIELDS=['client_submission_id','event_id','quoted_price','student_first_name','student_last_name','school_name','school_other','class_name','units','parent_name','parent_phone','student_phone','parent_email','notes'];
+const FIELDS=['request_kind','school_city','exam_date','client_submission_id','event_id','quoted_price','student_first_name','student_last_name','school_name','school_other','class_name','units','parent_name','parent_phone','student_phone','parent_email','notes'];
 export async function marathonRequest(request,env,fetchImpl,{json,validateTurnstile,publicError}){
  const url=new URL(request.url),catalog=url.pathname==='/api/marathons';
  const origin=request.headers.get('Origin');

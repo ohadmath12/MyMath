@@ -7,6 +7,7 @@ on:
       - 'marathon-script/**'
       - 'scripts/check-marathon-native.cjs'
       - 'scripts/export-marathon-audit.cjs'
+      - 'scripts/deploy-marathon.cjs'
       - '.github/workflows/marathon-script.yml'
   workflow_dispatch:
 
@@ -17,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  MARATHON_MODE: inspect
+  MARATHON_MODE: publish
 
 jobs:
   deploy:
@@ -46,20 +47,13 @@ jobs:
           clasp pull
       - name: Compare native sources before any write
         run: node scripts/check-marathon-native.cjs "$RUNNER_TEMP/marathon-native"
-      - name: Save encrypted source for comparison
-        if: failure() && env.MARATHON_MODE == 'inspect'
-        run: node scripts/export-marathon-audit.cjs "$RUNNER_TEMP/marathon-native"
       - name: Test marathon changes
         run: |
           node tests/marathon.test.cjs
           node --test tests/marathon-form.test.mjs tests/marathon-worker.test.mjs
       - name: Publish to both existing marathon URLs
         if: env.MARATHON_MODE == 'publish'
-        run: |
-          cd "$RUNNER_TEMP/marathon-native"
-          clasp push --force
-          clasp deploy --deploymentId AKfycbxAv_dxmYYQAsVqjdci3cPqjXmbgLAy_pCx7nkSkYc_sScoTIS2ud5Hv7wEeq-BHg16_A --description "marathon manager ${GITHUB_SHA::7}"
-          clasp deploy --deploymentId AKfycbwb0mJBIoLu-aEbWJ528FtYouI0WV6W0rZJ0HRtoPqeAZAqBHYBWhDnPiL4vMgfgdP-jw --description "marathon intake ${GITHUB_SHA::7}"
+        run: node scripts/deploy-marathon.cjs "$RUNNER_TEMP/marathon-native"
       - name: Remove runner credentials
         if: always()
         run: rm -f ~/.clasprc.json

@@ -7,7 +7,7 @@ function onOpen(){SpreadsheetApp.getUi().createMenu('ניהול מרתונים')
 function openMarathonManager(){mwRequireOwner_();SpreadsheetApp.getUi().showModalDialog(HtmlService.createHtmlOutputFromFile('MarathonAdmin').setWidth(1200).setHeight(760),'ניהול ושיבוץ מרתונים');}
 function installMarathonManager(){mwRequireOwner_();
  var ss=SpreadsheetApp.openById(MW_BOOK),sh=ss.getSheetByName(MW_CAMPAIGNS);
- if(!sh){sh=ss.insertSheet(MW_CAMPAIGNS,ss.getNumSheets());sh.setRightToLeft(true);sh.setHiddenGridlines(true);sh.setFrozenRows(4);sh.getRange('A1:G1').merge().setValue('מרתונים פתוחים להרשמה — שיבוץ לקבוצות מתבצע בנפרד');sh.getRange('A2:G2').merge().setValue('מגדירים מרתון לפי מבחן, כיתה ובית ספר. יוצרים קבוצות ומשבצים עד 6 תלמידים בלוח הניהול הפרטי.');sh.getRange('A4:G4').setValues([['מזהה מרתון','שם המרתון','כיתה','בית ספר','מחיר לתלמיד','מצב הרשמה','הערות פנימיות']]).setBackground('#1e293a').setFontColor('#ffffff').setFontWeight('bold');sh.setColumnWidths(1,7,160);sh.setColumnWidth(2,360);sh.setColumnWidth(4,280);sh.setColumnWidth(7,300);sh.hideColumns(1);sh.getRange('E5:E1000').setNumberFormat('#,##0.00 "₪"');sh.getRange('F5:F1000').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['טיוטה','הרשמה פתוחה','הרשמה סגורה'],true).setAllowInvalid(false).build());}
+ if(!sh){sh=ss.insertSheet(MW_CAMPAIGNS,ss.getNumSheets());sh.setRightToLeft(true);sh.setHiddenGridlines(true);sh.setFrozenRows(4);sh.getRange('A1:G1').merge().setValue('מרתונים פנימיים — שיבוץ בקשות לקבוצות');sh.getRange('A2:G2').merge().setValue('בקשות מגיעות מהטופס הקבוע. משייכים למרתון ולבית ספר, ואז לקבוצה של עד 6 תלמידים בלוח הניהול.');sh.getRange('A4:G4').setValues([['מזהה מרתון','שם המרתון','כיתה','בית ספר','מחיר לתלמיד','מצב הרשמה','הערות פנימיות']]).setBackground('#1e293a').setFontColor('#ffffff').setFontWeight('bold');sh.setColumnWidths(1,7,160);sh.setColumnWidth(2,360);sh.setColumnWidth(4,280);sh.setColumnWidth(7,300);sh.hideColumns(1);sh.getRange('E5:E1000').setNumberFormat('#,##0.00 "₪"');sh.getRange('F5:F1000').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['טיוטה','הרשמה פתוחה','הרשמה סגורה'],true).setAllowInvalid(false).build());}
  var groups=ss.getSheetByName('מרתונים');if(groups.getMaxColumns()<11)groups.insertColumnsAfter(groups.getMaxColumns(),11-groups.getMaxColumns());groups.getRange('J4:K4').setValues([['מזהה מרתון להרשמה','מקומות בקבוצה']]).setBackground('#1e293a').setFontColor('#ffffff').setFontWeight('bold');groups.hideColumns(10);groups.setColumnWidth(11,140);
  var p=ss.getSheetByName('משתתפי מרתונים');if(p.getMaxColumns()<24)p.insertColumnsAfter(p.getMaxColumns(),24-p.getMaxColumns());p.getRange('X4').setValue('מזהה מרתון להרשמה');p.hideColumns(24);p.getRange('R5:R1000').setDataValidation(SpreadsheetApp.newDataValidation().requireValueInList(['ממתין לשיבוץ','נרשם','רשימת המתנה','בוטל'],true).setAllowInvalid(false).build());
  installMarathonWebIntake();console.log('Marathon manager installed; historical rows preserved.');
@@ -16,8 +16,9 @@ function mwAdminState(){mwRequireOwner_();return mwAdminState_(SpreadsheetApp.op
 function mwAdminState_(ss){
  var campaigns=ss.getSheetByName(MW_CAMPAIGNS).getRange('A5:G1000').getValues().filter(function(r){return r[0];}).map(function(r){return{id:r[0],name:r[1],grade:r[2],school:r[3],price:r[4],status:r[5]};});
  var groups=ss.getSheetByName('מרתונים').getRange('A5:K1000').getValues().filter(function(r){return r[9]&&r[7];}).map(function(r){return{id:r[7],campaign:r[9],name:r[3],date:r[1] instanceof Date?Utilities.formatDate(r[1],'Asia/Jerusalem','yyyy-MM-dd'):'',status:r[5],capacity:Math.min(6,Number(r[10])||6)};});
- var people=ss.getSheetByName('משתתפי מרתונים').getRange('A5:X1000').getValues().map(function(r,i){return{row:i+5,id:r[19],campaign:r[23],group:r[18],name:r[3],phone:String(r[4]),school:r[5],level:r[6],status:r[17],attended:r[7]==='כן',paid:Number(r[11])||0};}).filter(function(r){return r.campaign;});
- return{campaigns:campaigns,groups:groups,people:people,schools:MW_SCHOOLS,grades:MW_CLASSES,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
+ var sources=mwSources_(ss);
+ var people=ss.getSheetByName('משתתפי מרתונים').getRange('A5:X1000').getValues().map(function(r,i){var receipt=mwReceipt_(r),source=sources[receipt],p=source?source.payload:{};return{receipt:receipt,kind:p.kind||'',grade:p.grade||String(r[6]).split(' / ')[0],units:p.level||String(r[6]).split(' / ').slice(1).join(' / '),examDate:p.examDate||'',city:p.city||'',received:source?source.received:'',row:i+5,id:r[19],campaign:r[23],group:r[18],name:r[3],phone:String(r[4]),school:r[5],level:r[6],status:r[17],attended:r[7]==='כן',paid:Number(r[11])||0};}).filter(function(r){return r.campaign||(r.kind==='interest'&&r.id);});
+ return{campaigns:campaigns,groups:groups,people:people,schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
 }
 function mwAdminCreateCampaign(data){mwRequireOwner_();
  var name=mwText_(data.name,180),grade=mwText_(data.grade,20),school=mwText_(data.school,120),price=Number(data.price);
@@ -43,3 +44,24 @@ function mwAssign_(ss,data){
 function mwAdminSetStatus(data){mwRequireOwner_();return mwAdminCampaignStatus(data.id,data.status);}
 
 function mwCommandId_(id){if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))throw Error('יש לרענן את המסך ולנסות שוב');return id;}
+
+// General requests acquire an internal price only when the owner selects a marathon.
+function mwAdminAssignCampaign(data){mwRequireOwner_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{return mwAssignCampaign_(SpreadsheetApp.openById(MW_BOOK),data);}finally{lock.releaseLock();}}
+function mwAssignCampaign_(ss,data){
+ var sh=ss.getSheetByName('משתתפי מרתונים'),rows=sh.getRange('A5:X1000').getValues(),i=Number(data.row)-5;
+ if(!Number.isInteger(i)||i<0||i>=rows.length)throw Error('תלמיד לא נמצא');var p=rows[i],receipt=mwReceipt_(p),source=mwSources_(ss)[receipt];
+ if(p[19]!==data.participantId||!receipt||receipt!==data.receipt||!source||source.payload.kind!=='interest')throw Error('הרשומה השתנתה; רעננו את הלוח');
+ var target=data.campaign||'',current=String(p[23]||'');
+ if(current===target)return{ok:true};
+ if(current!==String(data.expectedCampaign||''))throw Error('השיוך השתנה; רעננו את הלוח');
+ if(p[17]!=='ממתין לשיבוץ'||p[18]||p[7]==='כן'||Number(p[11])!==0||p[20]!=='')throw Error('שינוי מרתון זמין רק לפני שיבוץ, תשלום או נוכחות');
+ var campaign=null;
+ if(target){
+  campaign=ss.getSheetByName(MW_CAMPAIGNS).getRange('A5:G1000').getValues().find(function(r){return r[0]===target;});
+  if(!campaign||campaign[5]==='הרשמה סגורה'||typeof campaign[4]!=='number'||!isFinite(campaign[4])||campaign[4]<0)throw Error('יש לבחור מרתון פעיל עם מחיר פנימי תקין');
+  if(campaign[2]!==source.payload.grade||(campaign[3]&&campaign[3]!==source.payload.school))throw Error('הכיתה ובית הספר אינם תואמים למרתון');
+  if(rows.some(function(r,j){return j!==i&&r[23]===target&&r[17]!=='בוטל'&&(r[19]===p[19]||(mwName_(r[3])===mwName_(p[3])&&String(r[4])===String(p[4])));}))throw Error('התלמיד כבר מופיע במרתון הזה; יש לבדוק את ההרשמה הקיימת');
+ }
+ var range=sh.getRange(i+5,1,1,24),formulas=range.getFormulas()[0],values=p.map(function(v,j){return formulas[j]||v;});
+ values[8]=campaign?campaign[4]:'';values[23]=target;range.setValues([values]);SpreadsheetApp.flush();return{ok:true};
+}
