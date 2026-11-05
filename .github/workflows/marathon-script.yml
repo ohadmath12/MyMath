@@ -45,6 +45,9 @@ jobs:
           clasp pull
       - name: Compare native sources before any write
         run: node scripts/check-marathon-native.cjs "$RUNNER_TEMP/marathon-native"
+      - name: Save encrypted source for comparison
+        if: failure() && env.MARATHON_MODE == 'inspect'
+        run: node scripts/export-marathon-audit.cjs "$RUNNER_TEMP/marathon-native"
       - name: Test marathon changes
         run: |
           node tests/marathon.test.cjs
