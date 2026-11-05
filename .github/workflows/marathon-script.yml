@@ -6,6 +6,7 @@ on:
     paths:
       - 'marathon-script/**'
       - 'scripts/check-marathon-native.cjs'
+      - 'scripts/export-marathon-audit.cjs'
       - '.github/workflows/marathon-script.yml'
   workflow_dispatch:
 
