@@ -1,0 +1,61 @@
+name: Verify and publish marathon Apps Script
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'marathon-script/**'
+      - 'scripts/check-marathon-native.cjs'
+      - '.github/workflows/marathon-script.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: marathon-apps-script
+  cancel-in-progress: false
+permissions:
+  contents: read
+
+env:
+  MARATHON_MODE: inspect
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g @google/clasp@3.3.0 --no-fund --no-audit --loglevel=error
+      - name: Restore existing publishing credentials
+        env:
+          CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
+        run: |
+          printf '%s' "$CLASP_CREDENTIALS" > ~/.clasprc.json
+          chmod 600 ~/.clasprc.json
+      - name: Read the dedicated marathon project
+        run: |
+          mkdir -p "$RUNNER_TEMP/marathon-native"
+          printf '%s\n' '{"scriptId":"10yjfPOG85mOasZ9Yoma3qXio6PQq_IsKNWnASjo44haCgH0VFdmkniBe","rootDir":"."}' > "$RUNNER_TEMP/marathon-native/.clasp.json"
+          cd "$RUNNER_TEMP/marathon-native"
+          clasp pull
+      - name: Compare native sources before any write
+        run: node scripts/check-marathon-native.cjs "$RUNNER_TEMP/marathon-native"
+      - name: Test marathon changes
+        run: |
+          node tests/marathon.test.cjs
+          node --test tests/marathon-form.test.mjs tests/marathon-worker.test.mjs
+      - name: Publish to both existing marathon URLs
+        if: env.MARATHON_MODE == 'publish'
+        run: |
+          cd "$RUNNER_TEMP/marathon-native"
+          clasp push --force
+          clasp deploy --deploymentId AKfycbxAv_dxmYYQAsVqjdci3cPqjXmbgLAy_pCx7nkSkYc_sScoTIS2ud5Hv7wEeq-BHg16_A --description "marathon manager ${GITHUB_SHA::7}"
+          clasp deploy --deploymentId AKfycbwb0mJBIoLu-aEbWJ528FtYouI0WV6W0rZJ0HRtoPqeAZAqBHYBWhDnPiL4vMgfgdP-jw --description "marathon intake ${GITHUB_SHA::7}"
+      - name: Remove runner credentials
+        if: always()
+        run: rm -f ~/.clasprc.json
