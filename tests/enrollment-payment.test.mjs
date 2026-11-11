@@ -17,3 +17,13 @@ assert.ok(a.parent.children[0].children.some(x=>(x.textContent||'').includes('3 
 assert.ok(a.parent.children[0].children.some(x=>(x.textContent||'').includes('החל מהחודש הבא')));
 a=await scenario({ok:true,terms:{...terms,initial_lesson_agorot:14000,initial_lesson_count:3}});stopped=false;a.form.listener({preventDefault(){stopped=true},stopImmediatePropagation(){}});assert.ok(stopped);
 console.log('PASS: payment only after saved registration, single render, cash has no checkout, no charge calls, invalid/missing terms guarded, old personal links without plan supported');
+
+for (const price of [60000, 62000]) {
+  a=await scenario({ok:true,terms:{...terms,monthly_agorot:price,recurring_starts_on:'2026-12-10'}});
+  assert.ok(a.parent.children[0].children.some(x=>(x.textContent||'').includes(`${price/100} ש״ח ב־10 בכל חודש, החל מ־10/12/2026. הוראת הקבע תוסדר בנפרד.`)));
+}
+for (const extra of [{monthly_agorot:65000,recurring_starts_on:'2026-12-10'},{monthly_agorot:60000,monthly_method:'cash',recurring_starts_on:'2026-12-10'},{monthly_agorot:60000}]) {
+  a=await scenario({ok:true,terms:{...terms,...extra}});
+  assert.ok(!a.parent.children[0].children.some(x=>(x.textContent||'').includes('בכל חודש,')));
+}
+console.log('PASS: personal recurring wording uses agreed amount/date; standard price, cash and missing date unchanged');

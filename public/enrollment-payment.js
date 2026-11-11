@@ -21,8 +21,12 @@
     if (terms.monthly_agorot) {
       var monthly = document.createElement('p');
       monthly.textContent = 'החל מהחודש הבא — מחיר חודשי מוסכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + (terms.sibling_discount ? ' · מחיר אחים' : '') + '.';
+      var personalRecurring = terms.monthly_agorot !== 65000 && terms.monthly_method === 'recurring' && /^\d{4}-\d{2}-\d{2}$/.test(terms.recurring_starts_on || '');
+      if (personalRecurring) {
+        monthly.textContent = 'המחיר החודשי שסוכם עבורכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL') + ' ש״ח ב־' + Number(terms.recurring_starts_on.slice(8,10)) + ' בכל חודש, החל מ־' + terms.recurring_starts_on.split('-').reverse().join('/') + '. הוראת הקבע תוסדר בנפרד.';
+      }
       target.appendChild(monthly);
-      if (terms.monthly_method === 'recurring' && terms.recurring_starts_on) {
+      if (!personalRecurring && terms.monthly_method === 'recurring' && terms.recurring_starts_on) {
         var start = document.createElement('p'); start.textContent = 'מועד תחילת הוראת הקבע המתוכנן: ' + terms.recurring_starts_on.split('-').reverse().join('/') + '. הקמתה תאושר בנפרד.'; target.appendChild(start);
       }
     }
