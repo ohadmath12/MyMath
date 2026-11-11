@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFile} from 'node:fs/promises';
+const source=await readFile(new URL('../public/enrollment-payment.js',import.meta.url),'utf8');
+class Element{constructor(tag){this.tag=tag;this.children=[];this.hidden=false;}set textContent(v){this.text=v;this.children=[]}get textContent(){return this.text}appendChild(v){this.children.push(v)}setAttribute(){}addEventListener(k,fn){this.listener=fn}}
+async function scenario(result,reject=false){const form=new Element('form'),parent=new Element('parent'),success=new Element('success');parent.insertBefore=(el)=>parent.appendChild(el);form.parentNode=parent;const document={createElement:t=>new Element(t),querySelector:()=>form,getElementById:()=>success};const window={ENROLLMENT_PAYMENT_CONFIG:{url:'https://example.invalid',key:'anon'}};const calls=[];vm.runInNewContext(source,{window,document,URL,Number,fetch:async(url,options)=>{calls.push({url,options});if(reject)throw Error('network');return {ok:true,json:async()=>result}}});window.EnrollmentPayment.init('trial','a'.repeat(64));await new Promise(r=>setTimeout(r,0));return {window,form,parent,success,calls}}
+const terms={initial_agorot:32500,service_month:'2026-11-01',payment_url:'https://pay.grow.link/fixture',monthly_method:'recurring'};
+let a=await scenario({ok:true,terms});assert.equal(a.parent.children[0].children.some(x=>x.tag==='a'),false);a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.filter(x=>x.tag==='a').length,1);a.window.EnrollmentPayment.completed();assert.equal(a.success.children.length,1);assert.equal(a.calls.length,1);assert.ok(!a.calls.some(x=>/save|paid|charge/.test(x.url)));
+a=await scenario({ok:true,terms:{...terms,monthly_method:'cash',payment_url:null}});a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.filter(x=>x.tag==='a').length,0);
+for(const result of [{ok:false},{ok:true,terms:{...terms,payment_url:'https://grow.link.evil.invalid/x'}}]){a=await scenario(result);let stopped=false;a.form.listener({preventDefault(){stopped=true},stopImmediatePropagation(){}});assert.ok(stopped);a.window.EnrollmentPayment.completed();assert.equal(a.success.children.length,0)}
+a=await scenario({ok:true,terms:null});a.window.EnrollmentPayment.completed();assert.equal(a.success.children.length,0);assert.equal(a.parent.children[0].hidden,true);
+a=await scenario(null,true);let stopped=false;a.form.listener({preventDefault(){stopped=true},stopImmediatePropagation(){}});assert.ok(stopped);
+console.log('PASS: payment only after saved registration, single render, cash has no checkout, no charge calls, invalid/missing terms guarded, old personal links without plan supported');

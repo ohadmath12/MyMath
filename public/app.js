@@ -12,6 +12,7 @@
   var trialToken = incomingTrialToken || sessionStorage.getItem('trial-conversion-token');
   if (trialToken) sessionStorage.setItem('trial-conversion-token', trialToken);
   if (incomingTrialToken) { leadToken = null; sessionStorage.removeItem('lead-conversion-token'); }
+  if (window.EnrollmentPayment) window.EnrollmentPayment.init(leadToken ? 'lead' : 'trial', leadToken || trialToken);
   if (trialToken || leadToken) history.replaceState(null, '', location.pathname + location.search);
 
   /* Cloudflare validates Turnstile and applies rate limiting before forwarding
@@ -471,6 +472,7 @@
           sessionStorage.removeItem('lead-conversion-token');
           resetForm();
           showSuccess(response.registrationId);
+          if (window.EnrollmentPayment) window.EnrollmentPayment.completed();
         } else {
           resetTurnstile();
           showFormError('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');
