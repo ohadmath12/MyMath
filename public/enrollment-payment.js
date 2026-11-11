@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   var terms = null, ready = true, box, saved = false;
+  var edited = new Set();
   function message(text) { if (box) { box.textContent = text; box.hidden = false; } }
   function safeLink(value) {
     try { var u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password && /(^|\.)(grow\.link|meshulam\.co\.il|grow\.business)$/.test(u.hostname); } catch (e) { return false; }
@@ -12,6 +13,14 @@
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
     line.textContent = 'יתרת חודש ' + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. הסכום מתייחס לשיעורים שנותרו לאחר הניסיון; תשלום הניסיון נפרד.';
     target.appendChild(line);
+    if (terms.monthly_agorot) {
+      var monthly = document.createElement('p');
+      monthly.textContent = 'מחיר חודשי מוסכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + (terms.sibling_discount ? ' · מחיר אחים' : '') + '.';
+      target.appendChild(monthly);
+      if (terms.monthly_method === 'recurring' && terms.recurring_starts_on) {
+        var start = document.createElement('p'); start.textContent = 'מועד תחילת הוראת הקבע המתוכנן: ' + terms.recurring_starts_on.split('-').reverse().join('/') + '. הקמתה תאושר בנפרד.'; target.appendChild(start);
+      }
+    }
     var method = document.createElement('p');
     method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום חודשי במזומן. אין צורך להקים הוראת קבע. התשלום יתואם מול המרכז.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
     target.appendChild(method);
@@ -25,6 +34,8 @@
       if (!token) return;
       ready = false;
       var form = document.querySelector('form');
+      form.addEventListener('input', function(e){ edited.add(e.target.id); });
+      form.addEventListener('change', function(e){ edited.add(e.target.id); });
       box = document.createElement('section'); box.className = 'enrollment-payment-terms'; box.setAttribute('aria-live','polite');
       // Outside the step containers so the agreed terms remain visible before submission.
       form.parentNode.insertBefore(box, form);
@@ -37,6 +48,21 @@
           if (!r.ok) throw Error('invalid_link');
           terms = r.terms;
           if (terms && (!Number.isInteger(terms.initial_agorot) || terms.initial_agorot<0 || !/^\d{4}-\d{2}-01$/.test(terms.service_month) || ['cash','recurring'].indexOf(terms.monthly_method)<0 || (terms.monthly_method==='recurring'&&terms.initial_agorot>0&&!safeLink(terms.payment_url)))) throw Error('invalid_terms');
+          if (kind === 'trial' && r.prefill) {
+            ['parent_name','parent_phone','student_first_name','student_last_name','class_name','school_name'].forEach(function(key){
+              var field = document.getElementById(key), value = r.prefill[key];
+              if (!field || edited.has(key) || field.value || typeof value !== 'string' || !value) return;
+              if (field.tagName === 'SELECT' && !Array.from(field.options).some(function(o){ return o.value === value; })) {
+                if (key !== 'school_name') return;
+                field.add(new Option(value, value));
+              }
+              field.value = value;
+            });
+          }
+          if (terms && terms.monthly_agorot) {
+            var price = document.querySelector('.payment-price');
+            if (price) price.textContent = (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
+          }
           ready = true;
           if (terms) render(box,false); else box.hidden=true;
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });
