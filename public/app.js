@@ -81,6 +81,7 @@
   function resizeCanvas() {
     var ratio = window.devicePixelRatio || 1;
     var rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
     var imageData = null;
 
     if (canvas.width > 0 && canvas.height > 0) {
@@ -102,6 +103,7 @@
 
   resizeCanvas();
   window.addEventListener('resize', debounce(resizeCanvas, 200));
+  document.addEventListener('form-step-shown', resizeCanvas);
 
   function getPoint(evt) {
     var rect = canvas.getBoundingClientRect();
@@ -416,6 +418,7 @@
       showFormError('נא להשלים את כל השדות המסומנים ולוודא שהחתימה מולאה.');
       var firstInvalid = form.querySelector('.invalid, .signature-wrap.invalid');
       if (firstInvalid) {
+        document.dispatchEvent(new CustomEvent('reveal-form-field', {detail:firstInvalid}));
         firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
       return;

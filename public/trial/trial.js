@@ -19,6 +19,19 @@ form.addEventListener('submit',async event=>{
   const endpoint=new URL(window.MYTHEMATIX_CONFIG?.apiEndpoint||'../api/register',location.href);endpoint.pathname=endpoint.pathname.replace(/\/register$/,'/trial');
   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
   const result=await response.json();if(!response.ok||!result.ok)throw new Error('failed');
-  form.hidden=true;sessionStorage.removeItem('mythematix-trial-submission');message.textContent='הפרטים נקלטו. ניצור איתכם קשר לתיאום שיעור הניסיון.\nהשיבוץ יושלם לאחר אישור המועד.';
+  form.hidden=true;showTrialPayment(result);sessionStorage.removeItem('mythematix-trial-submission');message.textContent='הפרטים נקלטו. ניצור איתכם קשר לתיאום שיעור הניסיון.\nהשיבוץ יושלם לאחר אישור המועד.';
  }catch{message.textContent='לא הצלחנו לאשר את הקליטה. נסו שוב עם אותם פרטים או פנו אלינו. אין צורך למלא בקשה חדשה.';challenge='';window.turnstile.reset(widget)}finally{pending=false;button.disabled=!challenge}
 });
+
+// Only a configured, provider-hosted checkout is shown after successful intake.
+// Opening checkout never marks a trial as paid.
+function showTrialPayment(result) {
+ const configured = window.MYTHEMATIX_CONFIG?.trialPaymentUrl;
+ if (!configured) return;
+ let url; try { url = new URL(configured); } catch { return; }
+ if (url.protocol !== 'https:' || !['grow.link','meshulam.co.il','grow.business'].some(host => url.hostname === host || url.hostname.endsWith('.'+host))) return;
+ const container=document.getElementById('trial-payment');
+ const note=document.createElement('p');note.textContent='עלות שיעור הניסיון: 160 ₪. התשלום נפרד מההרשמה למסגרת קבועה.';
+ const link=document.createElement('a');link.href=url.href;link.textContent='לתשלום מאובטח ב־Grow · 160 ₪';link.target='_blank';link.rel='noopener noreferrer';
+ container.replaceChildren(note,link);container.hidden=false;
+}
