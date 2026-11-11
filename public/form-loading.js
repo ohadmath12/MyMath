@@ -6,19 +6,28 @@
   root.classList.add('form-loading');
   let finished = false;
   let revealTimer;
+  let closing = false;
+  let closeTimer;
   const finish = () => {
     if (finished) return;
     finished = true;
-    root.classList.remove('form-loading');
+    root.classList.remove('form-loading', 'form-loading-complete');
     document.getElementById('form-loading-screen')?.remove();
     clearTimeout(timeout);
     clearTimeout(revealTimer);
+    clearTimeout(closeTimer);
+  };
+  const complete = () => {
+    if (finished || closing) return;
+    closing = true;
+    root.classList.add('form-loading-complete');
+    closeTimer = setTimeout(finish, 450);
   };
   const ready = () => {
     if (finished || revealTimer !== undefined) return;
-    revealTimer = setTimeout(finish, Math.max(0, minimumMs - (performance.now() - started)));
+    revealTimer = setTimeout(complete, Math.max(0, minimumMs - (performance.now() - started)));
   };
-  const timeout = setTimeout(finish, 6000);
+  const timeout = setTimeout(complete, 6000);
   document.addEventListener('form-step-shown', ready, { once: true });
   document.addEventListener('DOMContentLoaded', ready, { once: true });
   window.addEventListener('pageshow', event => event.persisted ? finish() : ready(), { once: true });
