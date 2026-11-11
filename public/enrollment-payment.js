@@ -13,9 +13,14 @@
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
     line.textContent = 'יתרת חודש ' + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. הסכום מתייחס לשיעורים שנותרו לאחר הניסיון; תשלום הניסיון נפרד.';
     target.appendChild(line);
+    if (terms.initial_lesson_agorot != null) {
+      var breakdown = document.createElement('p');
+      breakdown.textContent = 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. שיעור הניסיון אינו כלול.';
+      target.appendChild(breakdown);
+    }
     if (terms.monthly_agorot) {
       var monthly = document.createElement('p');
-      monthly.textContent = 'מחיר חודשי מוסכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + (terms.sibling_discount ? ' · מחיר אחים' : '') + '.';
+      monthly.textContent = 'החל מהחודש הבא — מחיר חודשי מוסכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + (terms.sibling_discount ? ' · מחיר אחים' : '') + '.';
       target.appendChild(monthly);
       if (terms.monthly_method === 'recurring' && terms.recurring_starts_on) {
         var start = document.createElement('p'); start.textContent = 'מועד תחילת הוראת הקבע המתוכנן: ' + terms.recurring_starts_on.split('-').reverse().join('/') + '. הקמתה תאושר בנפרד.'; target.appendChild(start);
@@ -63,6 +68,7 @@
             var price = document.querySelector('.payment-price');
             if (price) price.textContent = (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
           }
+          if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
           ready = true;
           if (terms) render(box,false); else box.hidden=true;
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });

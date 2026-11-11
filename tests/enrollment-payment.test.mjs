@@ -12,4 +12,8 @@ a=await scenario({ok:true,terms:null});a.window.EnrollmentPayment.completed();as
 a=await scenario(null,true);let stopped=false;a.form.listener({preventDefault(){stopped=true},stopImmediatePropagation(){}});assert.ok(stopped);
 a=await scenario({ok:true,terms:{...terms,monthly_agorot:60000,recurring_starts_on:'2026-12-10',sibling_discount:true},prefill:{parent_name:'Original',student_first_name:'Child'}});
 assert.equal(a.fields.student_first_name.value,'Child');assert.equal(a.fields.parent_name.value,'User typed');assert.match(a.price.textContent,/600/);assert.ok(a.parent.children[0].children.some(x=>(x.textContent||'').includes('10/12/2026')));
+a=await scenario({ok:true,terms:{...terms,initial_agorot:42000,initial_lesson_agorot:14000,initial_lesson_count:3,monthly_agorot:65000}});
+assert.ok(a.parent.children[0].children.some(x=>(x.textContent||'').includes('3 שיעורים × 140')));
+assert.ok(a.parent.children[0].children.some(x=>(x.textContent||'').includes('החל מהחודש הבא')));
+a=await scenario({ok:true,terms:{...terms,initial_lesson_agorot:14000,initial_lesson_count:3}});stopped=false;a.form.listener({preventDefault(){stopped=true},stopImmediatePropagation(){}});assert.ok(stopped);
 console.log('PASS: payment only after saved registration, single render, cash has no checkout, no charge calls, invalid/missing terms guarded, old personal links without plan supported');
