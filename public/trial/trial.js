@@ -18,7 +18,7 @@ window.trialTurnstileReady=function(){
  widget=window.turnstile.render('#turnstile',{sitekey:config.turnstileSiteKey,action:'trial',callback:token=>{challenge=token;button.disabled=pending},'expired-callback':()=>{challenge='';button.disabled=true},'error-callback':()=>{challenge='';button.disabled=true;message.textContent='אימות הטופס נכשל. נסו לרענן את הדף.'}});
 };
 form.addEventListener('submit',async event=>{
- event.preventDefault();if(pending||!challenge||!form.reportValidity())return;
+ event.preventDefault();if(pending||!challenge||!form.reportValidity()||(window.trialInviteToken&&!window.trialInviteReady))return;
  const payload=Object.fromEntries(new FormData(form));
  if(payload.school_name==='__other__'){
   payload.school_name=schoolOther.value.trim();
@@ -30,6 +30,10 @@ form.addEventListener('submit',async event=>{
  payload.parent_phone=phone;payload.client_submission_id=submissionId;payload.turnstile_token=challenge;
  pending=true;button.disabled=true;message.textContent='שומרים את הפרטים…';
  try{
+  if(window.trialInviteToken){
+   const terms=await window.trialInviteRpc('submit_trial_invitation',{token:window.trialInviteToken,payload});
+   form.hidden=true;window.showPersonalTrialPayment(terms);message.textContent='הפרטים נקלטו. ניצור איתכם קשר לתיאום שיעור הניסיון.';return;
+  }
   const endpoint=new URL(window.MYTHEMATIX_CONFIG?.apiEndpoint||'../api/register',location.href);endpoint.pathname=endpoint.pathname.replace(/\/register$/,'/trial');
   const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload)});
   const result=await response.json();if(!response.ok||!result.ok)throw new Error('failed');
