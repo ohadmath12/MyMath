@@ -1,11 +1,12 @@
 /* Presentation only: existing submission handlers and payloads remain authoritative. */
 (() => {
   'use strict';
-  const form = document.querySelector('#registration-form, #trial-form');
+  const form = document.querySelector('#registration-form, #trial-form, #lead-form');
   if (!form) return;
-  const trial = form.id === 'trial-form';
+  const inquiry = form.id === 'lead-form';
+  const trial = form.id === 'trial-form' || inquiry;
   const pages = [];
-  const titles = trial ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : ['על התוכנית', 'פרטי הורה', 'פרטי תלמיד', 'תקנון וחתימה'];
+  const titles = inquiry ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : trial ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : ['על התוכנית', 'פרטי הורה', 'פרטי תלמיד', 'תקנון וחתימה'];
   const add = nodes => {
     const section = document.createElement('section');
     section.className = 'wizard-page';
@@ -14,7 +15,10 @@
     nodes.forEach(node => section.append(node));
     form.append(section); pages.push(section);
   };
-  if (trial) {
+  if (inquiry) {
+    const groups=[...form.querySelectorAll('.form-group')];
+    add([groups[0]]);add([groups[1]]);add([form.querySelector('.submit-row')]);
+  } else if (trial) {
     const grid = form.querySelector('.grid');
     const labels = [...grid.children];
     add(labels.slice(4)); add(labels.slice(0,4)); grid.remove();
