@@ -3,6 +3,15 @@ let challenge='', widget, pending=false;
 let submissionId=sessionStorage.getItem('mythematix-trial-submission') || crypto.randomUUID();
 sessionStorage.setItem('mythematix-trial-submission',submissionId);
 const form=document.getElementById('trial-form'), button=document.getElementById('submit'), message=document.getElementById('message');
+const schoolSelect=document.getElementById('school_name'), schoolOther=document.getElementById('school_other'), schoolOtherField=document.getElementById('school-other-field');
+function updateSchoolChoice(){
+ const other=schoolSelect.value==='__other__';
+ schoolOtherField.hidden=!other;schoolOther.disabled=!other;schoolOther.required=other;
+ schoolOther.setCustomValidity('');
+}
+schoolSelect.addEventListener('change',updateSchoolChoice);
+schoolOther.addEventListener('input',()=>schoolOther.setCustomValidity(''));
+updateSchoolChoice();
 window.trialTurnstileReady=function(){
  const config=window.MYTHEMATIX_CONFIG;
  if(!config?.turnstileSiteKey){message.textContent='הטופס אינו זמין כרגע. אנא פנו אלינו לתיאום.';return}
@@ -11,6 +20,11 @@ window.trialTurnstileReady=function(){
 form.addEventListener('submit',async event=>{
  event.preventDefault();if(pending||!challenge||!form.reportValidity())return;
  const payload=Object.fromEntries(new FormData(form));
+ if(payload.school_name==='__other__'){
+  payload.school_name=schoolOther.value.trim();
+  if(!payload.school_name){schoolOther.setCustomValidity('יש להזין את שם בית הספר');schoolOther.reportValidity();return;}
+ }
+
  let phone=payload.parent_phone.replace(/[\s()+-]/g,'');if(phone.startsWith('972'))phone='0'+phone.slice(3);
  if(!/^05\d{8}$/.test(phone)){message.textContent='יש להזין מספר נייד ישראלי תקין של ההורה.';return}
  payload.parent_phone=phone;payload.client_submission_id=submissionId;payload.turnstile_token=challenge;
