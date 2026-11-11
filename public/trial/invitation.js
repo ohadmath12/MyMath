@@ -34,6 +34,11 @@ if(window.trialInviteToken){
    if(name==='school_name'&&!Array.from(input.options).some(o=>o.value===value)){input.value='__other__';const other=document.getElementById('school_other');other.value=value;input.dispatchEvent(new Event('change'));}
    else input.value=value;
   }}
-  msg.textContent='';f.hidden=false;
+  if(data.prefill){
+   document.getElementById('submit').textContent='אישור הפרטים והמשך לתשלום';
+   window.trialInvitePrefilled=true;document.dispatchEvent(new Event('trial-invitation-prefilled'));
+   msg.textContent='הפרטים שהשארתם כבר מופיעים כאן. בדקו אותם ואשרו להמשך לתשלום; אין צורך למלא טופס נוסף.';
+  }else msg.textContent='';
+  f.hidden=false;
  }).catch(()=>{msg.textContent='הקישור אינו זמין או שפג תוקפו. פנו אלינו לקבלת קישור אישי חדש. לא בוצע חיוב.';f.hidden=true});
 }

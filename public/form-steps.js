@@ -38,8 +38,16 @@
   const back=document.createElement('button');back.type='button';back.textContent='חזרה';back.className='step-back';
   const next=document.createElement('button');next.type='button';next.textContent='המשך לשלב הבא';next.className='step-next';
   nav.append(back,next);form.append(nav);
-  let current=0;
+  let current=0, personalReview=false;
+  function reviewPersonalDetails(){
+    if(!trial||!window.trialInvitePrefilled)return;
+    personalReview=true;current=pages.length-1;
+    pages.forEach(page=>page.hidden=false);progress.hidden=true;nav.hidden=true;
+    document.dispatchEvent(new Event('form-step-shown'));
+  }
+  document.addEventListener('trial-invitation-prefilled',reviewPersonalDetails);
   function show(index,focus=true){
+    if(personalReview)return;
     next.textContent = !trial && index === 0 ? 'ממשיכים להרשמה' : 'המשך לשלב הבא';
     current=index; pages.forEach((page,i)=>page.hidden=i!==index);
     [...progress.children].forEach((li,i)=>{li.classList.toggle('complete',i<index);if(i===index)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');});
@@ -59,5 +67,5 @@
   },true);
   form.addEventListener('invalid',event=>{const index=pages.findIndex(page=>page.contains(event.target));if(index>=0&&index!==current)show(index,false);},true);
   document.addEventListener('reveal-form-field',event=>{const index=pages.findIndex(page=>page.contains(event.detail));if(index>=0)show(index,false);});
-  show(0,false);
+  show(0,false);reviewPersonalDetails();
 })();
