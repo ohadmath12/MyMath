@@ -5,7 +5,7 @@
   if (!form) return;
   const trial = form.id === 'trial-form';
   const pages = [];
-  const titles = trial ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : ['פרטי הורה', 'פרטי תלמיד', 'תקנון וחתימה'];
+  const titles = trial ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : ['על התוכנית', 'פרטי הורה', 'פרטי תלמיד', 'תקנון וחתימה'];
   const add = nodes => {
     const section = document.createElement('section');
     section.className = 'wizard-page';
@@ -21,15 +21,13 @@
     add([...form.querySelectorAll('.note, #turnstile, #submit')]);
   } else {
     const groups = [...form.querySelectorAll('.form-group')];
+    add([document.getElementById('program'), document.getElementById('payment'), document.getElementById('contact')]);
+    pages[0].classList.add('program-step');
     add([groups[2]]); add([groups[0], groups[1]]);
     add([document.getElementById('terms'), groups[3], form.querySelector('.submit-row')]);
     const main = document.querySelector('main');
     main.prepend(document.getElementById('registration-section'));
-    const details = document.createElement('details');
-    details.className = 'program-details';
-    const summary = document.createElement('summary'); summary.textContent = 'מידע נוסף על התוכנית ופרטי קשר'; details.append(summary);
-    ['program','payment','contact'].forEach(id => details.append(document.getElementById(id)));
-    main.append(details);
+
   }
   const progress = document.createElement('ol'); progress.className = 'form-progress'; progress.setAttribute('aria-label','שלבי ההרשמה');
   titles.forEach((title,index) => {const li=document.createElement('li'); const n=document.createElement('span'); n.textContent=index+1;li.append(n,document.createTextNode(title));progress.append(li);});
@@ -42,6 +40,7 @@
   nav.append(back,next);form.append(nav);
   let current=0;
   function show(index,focus=true){
+    next.textContent = !trial && index === 0 ? 'ממשיכים להרשמה' : 'המשך לשלב הבא';
     current=index; pages.forEach((page,i)=>page.hidden=i!==index);
     [...progress.children].forEach((li,i)=>{li.classList.toggle('complete',i<index);if(i===index)li.setAttribute('aria-current','step');else li.removeAttribute('aria-current');});
     back.hidden=index===0;next.hidden=index===pages.length-1;
