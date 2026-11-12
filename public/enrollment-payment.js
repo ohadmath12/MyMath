@@ -8,6 +8,7 @@
   }
   function render(target, paymentButton) {
     target.textContent = '';
+    var recurringInitial = terms.monthly_method === 'recurring' && terms.payment_flow === 'recurring_initial';
     var title = document.createElement('h3'); title.textContent = 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
     var line = document.createElement('p');
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
@@ -23,18 +24,18 @@
       monthly.textContent = 'החל מהחודש הבא — מחיר חודשי מוסכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + (terms.sibling_discount ? ' · מחיר אחים' : '') + '.';
       var personalRecurring = terms.monthly_agorot !== 65000 && terms.monthly_method === 'recurring' && /^\d{4}-\d{2}-\d{2}$/.test(terms.recurring_starts_on || '');
       if (personalRecurring) {
-        monthly.textContent = 'המחיר החודשי שסוכם עבורכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL') + ' ש״ח ב־' + Number(terms.recurring_starts_on.slice(8,10)) + ' בכל חודש, החל מ־' + terms.recurring_starts_on.split('-').reverse().join('/') + '. הוראת הקבע תוסדר בנפרד.';
+        monthly.textContent = 'המחיר החודשי שסוכם עבורכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL') + ' ש״ח ב־' + Number(terms.recurring_starts_on.slice(8,10)) + ' בכל חודש, החל מ־' + terms.recurring_starts_on.split('-').reverse().join('/') + (recurringInitial ? '. לאחר התשלום הראשון המרכז יעדכן את הוראת הקבע לסכום ולמועד אלה.' : '. הוראת הקבע תוסדר בנפרד.');
       }
       target.appendChild(monthly);
       if (!personalRecurring && terms.monthly_method === 'recurring' && terms.recurring_starts_on) {
-        var start = document.createElement('p'); start.textContent = 'מועד תחילת הוראת הקבע המתוכנן: ' + terms.recurring_starts_on.split('-').reverse().join('/') + '. הקמתה תאושר בנפרד.'; target.appendChild(start);
+        var start = document.createElement('p'); start.textContent = 'מועד תחילת הוראת הקבע המתוכנן: ' + terms.recurring_starts_on.split('-').reverse().join('/') + (recurringInitial ? '. לאחר התשלום הראשון המרכז יעדכן את הוראת הקבע למועד זה ולמחיר החודשי שסוכם.' : '. הקמתה תאושר בנפרד.'); target.appendChild(start);
       }
     }
     var method = document.createElement('p');
-    method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום חודשי במזומן. אין צורך להקים הוראת קבע. התשלום יתואם מול המרכז.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
+    method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום יתרת החודש והתשלום החודשי במזומן. אין צורך להזין אשראי או להקים הוראת קבע. השלמת הטופס אינה אישור קבלת תשלום.' : recurringInitial ? 'בהמשך תעברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום יתרת החודש המוצג כאן. לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
     target.appendChild(method);
     if (paymentButton && terms.initial_agorot > 0 && terms.monthly_method !== 'cash' && safeLink(terms.payment_url)) {
-      var a = document.createElement('a'); a.href = terms.payment_url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'btn btn-primary'; a.textContent = 'לתשלום מאובטח ב־Grow · ' + amount; target.appendChild(a);
+      var a = document.createElement('a'); a.href = terms.payment_url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'btn btn-primary'; a.textContent = (recurringInitial ? 'לתשלום הראשון ולהקמת הוראת קבע · ' : 'לתשלום מאובטח ב־Grow · ') + amount; target.appendChild(a);
       var note = document.createElement('p'); note.textContent = 'אם כבר שילמתם, אין לשלם שוב. פתיחת הקישור או השלמת ההרשמה אינן אישור שהתקבל תשלום.'; target.appendChild(note);
     }
   }

@@ -27,3 +27,11 @@ for (const extra of [{monthly_agorot:65000,recurring_starts_on:'2026-12-10'},{mo
   assert.ok(!a.parent.children[0].children.some(x=>(x.textContent||'').includes('בכל חודש,')));
 }
 console.log('PASS: personal recurring wording uses agreed amount/date; standard price, cash and missing date unchanged');
+for(const monthly of [60000,65000]){
+ a=await scenario({ok:true,terms:{...terms,initial_agorot:42000,initial_lesson_agorot:14000,initial_lesson_count:3,monthly_agorot:monthly,recurring_starts_on:'2026-12-10',payment_flow:'recurring_initial'}});
+ const copy=a.parent.children[0].children.map(x=>x.textContent||'').join(' ');
+ assert.match(copy,/החיוב הראשון יבוצע מיד/);assert.match(copy,/10\/12\/2026/);assert.ok(!copy.includes('תוסדר בנפרד'));
+ a.window.EnrollmentPayment.completed();assert.match(a.success.children[0].children.find(x=>x.tag==='a').textContent,/להקמת הוראת קבע/);assert.equal(a.calls.length,1);
+}
+a=await scenario({ok:true,terms:{...terms,monthly_method:'cash',monthly_agorot:60000,payment_url:'https://pay.grow.link/stale',payment_flow:'recurring_initial'}});a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.filter(x=>x.tag==='a').length,0);assert.ok(a.success.children[0].children.some(x=>(x.textContent||'').includes('אינה אישור קבלת תשלום')));
+console.log('PASS: recurring initial charge, agreed next date and cash cannot expose stale checkout');

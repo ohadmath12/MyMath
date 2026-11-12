@@ -11,14 +11,16 @@ window.trialInviteRpc=async function(name,args){
 window.showPersonalTrialPayment=function(data){
  const container=document.getElementById('trial-payment');container.replaceChildren();container.hidden=false;
  const note=document.createElement('p');
+ const cash=data.payment_method==='cash';
  const price=new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS'}).format(data.amount_agorot/100);
  note.textContent=data.paid?'התשלום כבר תועד במערכת. אין לשלם שוב.':data.needs_review?'הפרטים נקלטו לבדיקה כדי למנוע כפילות. ניצור איתכם קשר לפני המשך התשלום.':`מחיר שיעור הניסיון שסוכם: ${price}. התשלום חד־פעמי, בנפרד מההרשמה למסגרת קבועה. אם כבר שילמתם, אין לשלם שוב — פנו אלינו לאישור.`;
+ if(cash&&!data.paid&&!data.needs_review)note.textContent=`הפרטים נקלטו. מחיר שיעור הניסיון שסוכם: ${price}, לתשלום במזומן מול המרכז. אין צורך להזין אשראי. מילוי הטופס אינו אישור שהתקבל תשלום או שיבוץ קבוע.`;
  container.append(note);
- if(data.payment_url&&!data.paid){
+ if(!cash&&data.payment_url&&!data.paid){
   const u=new URL(data.payment_url);
   if(u.protocol!=='https:'||!['grow.link','meshulam.co.il','grow.business'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h)))return;
   const link=document.createElement('a');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';link.textContent=`לתשלום מאובטח ב־Grow · ${price}`;container.append(link);
- }else if(!data.paid&&!data.needs_review){note.textContent+=' הקישור לתשלום אינו זמין כרגע. פנו אלינו להשלמת הטיפול.';}
+ }else if(!cash&&!data.paid&&!data.needs_review){note.textContent+=' הקישור לתשלום אינו זמין כרגע. פנו אלינו להשלמת הטיפול.';}
 };
 if(window.trialInviteToken){
  const f=document.getElementById('trial-form'),msg=document.getElementById('message');
@@ -26,8 +28,10 @@ if(window.trialInviteToken){
  const priceNote=f.querySelector('.note');priceNote.textContent='טוענים את המחיר שסוכם…';
  window.trialInviteRpc('read_trial_invitation',{token:window.trialInviteToken}).then(data=>{
   window.trialInviteTerms=data;window.trialInviteReady=true;
-  const price=new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS'}).format(data.amount_agorot/100);
+  const cash=data.payment_method==='cash';
+ const price=new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS'}).format(data.amount_agorot/100);
   priceNote.textContent=`מחיר שיעור הניסיון שסוכם: ${price}, בתשלום חד־פעמי. לאחר אישור הפרטים יוצג הקישור לתשלום. מילוי הטופס אינו אישור שיבוץ או תשלום.`;
+  if(cash)priceNote.textContent=`מחיר שיעור הניסיון שסוכם: ${price}, לתשלום במזומן. אין צורך באשראי. אישור הפרטים אינו אישור שהתקבל תשלום או שיבוץ.`;
   const badge=document.createElement('p');badge.className='note';badge.textContent=`מחיר אישי לשיעור הניסיון: ${price}`;f.before(badge);
   if(data.submitted){msg.textContent='הפרטים כבר נקלטו. אין צורך לשלוח טופס נוסף.';window.showPersonalTrialPayment(data);return;}
   if(data.prefill){for(const [name,value] of Object.entries(data.prefill)){if(!value)continue;const input=f.elements.namedItem(name);if(!input)continue;
@@ -35,9 +39,9 @@ if(window.trialInviteToken){
    else input.value=value;
   }}
   if(data.prefill){
-   document.getElementById('submit').textContent='אישור הפרטים והמשך לתשלום';
+   document.getElementById('submit').textContent=cash?'אישור הפרטים לניסיון במזומן':'אישור הפרטים והמשך לתשלום';
    window.trialInvitePrefilled=true;document.dispatchEvent(new Event('trial-invitation-prefilled'));
-   msg.textContent='הפרטים שהשארתם כבר מופיעים כאן. בדקו אותם ואשרו להמשך לתשלום; אין צורך למלא טופס נוסף.';
+   msg.textContent=cash?'הפרטים שהשארתם כבר מופיעים כאן. אשרו אותם; התשלום שסוכם יתבצע במזומן מול המרכז.':'הפרטים שהשארתם כבר מופיעים כאן. בדקו אותם ואשרו להמשך לתשלום; אין צורך למלא טופס נוסף.';
   }else msg.textContent='';
   f.hidden=false;
  }).catch(()=>{msg.textContent='הקישור אינו זמין או שפג תוקפו. פנו אלינו לקבלת קישור אישי חדש. לא בוצע חיוב.';f.hidden=true});
