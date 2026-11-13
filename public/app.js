@@ -327,7 +327,7 @@
   function validateForm() {
     var valid = true;
     var textFields = [
-      'student_first_name', 'student_last_name', 'student_id', 'student_phone',
+      'student_first_name', 'student_last_name', 'student_id', 'student_phone', 'student_email',
       'school_name', 'class_name', 'units', 'parent_name', 'parent_phone', 'parent_email'
     ];
 

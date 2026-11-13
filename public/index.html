@@ -300,8 +300,9 @@
                 <div class="field-error" id="err-student_phone"></div>
               </div>
               <div class="field">
-                <label for="student_email">כתובת דוא״ל (לא חובה)</label>
-                <input type="email" id="student_email" name="student_email" maxlength="120" autocomplete="email">
+                <label for="student_email">מייל תלמיד - כניסה לאתר התלמידים<span class="required-mark">*</span></label>
+                <input type="email" id="student_email" name="student_email" required maxlength="120" autocomplete="email" aria-describedby="student-email-help">
+                <p id="student-email-help">מומלץ מאוד להזין את כתובת המייל האישית של התלמיד/ה, כדי שיוכלו להיכנס בעצמם לסיכומי השיעורים ולחומרי הלימוד. יש להזין כתובת פעילה שיש להם גישה אליה. אם אין לתלמיד/ה מייל אישי, ניתן להזין את מייל ההורה.</p>
                 <div class="field-error" id="err-student_email"></div>
               </div>
             </div>
