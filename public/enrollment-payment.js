@@ -14,6 +14,14 @@
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
     line.textContent = 'יתרת חודש ' + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. הסכום מתייחס לשיעורים שנותרו לאחר הניסיון; תשלום הניסיון נפרד.';
     target.appendChild(line);
+    if (terms.monthly_method === 'cash') {
+      var trial = terms.unpaid_trial_agorot || 0;
+      if (trial > 0) {
+        var trialLine = document.createElement('p'); trialLine.textContent = 'שיעור ניסיון שטרם שולם: ' + (trial / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + '.'; target.appendChild(trialLine);
+      }
+      var total = document.createElement('p');
+      var totalText = document.createElement('strong'); totalText.textContent = 'סה״כ לתשלום במזומן: ' + ((terms.initial_agorot + trial) / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + '.'; total.appendChild(totalText); target.appendChild(total);
+    }
     if (terms.initial_lesson_agorot != null) {
       var breakdown = document.createElement('p');
       breakdown.textContent = 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. שיעור הניסיון אינו כלול.';
@@ -32,7 +40,7 @@
       }
     }
     var method = document.createElement('p');
-    method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום יתרת החודש והתשלום החודשי במזומן. אין צורך להזין אשראי או להקים הוראת קבע. השלמת הטופס אינה אישור קבלת תשלום.' : recurringInitial ? 'בהמשך תעברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום יתרת החודש המוצג כאן. לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
+    method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום הסכומים המפורטים לעיל והתשלום החודשי במזומן. אין צורך להזין אשראי או להקים הוראת קבע. השלמת הטופס אינה אישור קבלת תשלום.' : recurringInitial ? 'בהמשך תעברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום יתרת החודש המוצג כאן. לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
     target.appendChild(method);
     if (paymentButton && terms.initial_agorot > 0 && terms.monthly_method !== 'cash' && safeLink(terms.payment_url)) {
       var a = document.createElement('a'); a.href = terms.payment_url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'btn btn-primary'; a.textContent = (recurringInitial ? 'לתשלום הראשון ולהקמת הוראת קבע · ' : 'לתשלום מאובטח ב־Grow · ') + amount; target.appendChild(a);
@@ -74,6 +82,7 @@
             if (price) price.textContent = (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
           }
           if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
+          if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash'))) throw Error('invalid_unpaid_trial');
           ready = true;
           if (terms) render(box,false); else box.hidden=true;
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });

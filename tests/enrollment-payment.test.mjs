@@ -35,3 +35,15 @@ for(const monthly of [60000,65000]){
 }
 a=await scenario({ok:true,terms:{...terms,monthly_method:'cash',monthly_agorot:60000,payment_url:'https://pay.grow.link/stale',payment_flow:'recurring_initial'}});a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.filter(x=>x.tag==='a').length,0);assert.ok(a.success.children[0].children.some(x=>(x.textContent||'').includes('אינה אישור קבלת תשלום')));
 console.log('PASS: recurring initial charge, agreed next date and cash cannot expose stale checkout');
+
+for (const trial of [0,12000,16000]) {
+ a=await scenario({ok:true,terms:{...terms,initial_agorot:48000,monthly_method:'cash',payment_url:null,unpaid_trial_agorot:trial}});
+ const content=a.parent.children[0].children;
+ assert.equal(content.some(x=>(x.textContent||'').includes('ניסיון שטרם שולם')),trial>0);
+ assert.ok(content.some(x=>x.children.some(c=>(c.textContent||'').includes(String(480+trial/100)))));
+ a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.filter(x=>x.tag==='a').length,0);assert.equal(a.calls.length,1);
+}
+for(const extra of [{unpaid_trial_agorot:-1,monthly_method:'cash'},{unpaid_trial_agorot:1.5,monthly_method:'cash'},{unpaid_trial_agorot:16000,monthly_method:'recurring'}]){
+ a=await scenario({ok:true,terms:{...terms,...extra}});let blocked=false;a.form.listener({preventDefault(){blocked=true},stopImmediatePropagation(){}});assert.ok(blocked);
+}
+console.log('PASS: separate unpaid trial, cash total, no checkout/payment mutation, malformed terms blocked');
