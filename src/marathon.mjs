@@ -1,4 +1,10 @@
-const FIELDS=['request_kind','school_city','exam_date','client_submission_id','event_id','quoted_price','student_first_name','student_last_name','school_name','school_other','class_name','units','parent_name','parent_phone','student_phone','parent_email','notes'];
+const FIELDS=['form_version','request_kind','school_city','exam_date','client_submission_id','event_id','quoted_price','student_first_name','student_last_name','school_name','school_other','class_name','units','parent_name','parent_phone','student_phone','parent_email','notes'];
+function safePayment(value){
+ if(!value||typeof value.amount!=='number'||!Number.isFinite(value.amount)||value.amount<=0||value.amount>10000||typeof value.url!=='string'||value.url.length>2048)throw Error('invalid_payment');
+ const url=new URL(value.url);
+ if(url.protocol!=='https:'||url.username||url.password||url.port||!['grow.link','meshulam.co.il','grow.business'].some(host=>url.hostname===host||url.hostname.endsWith('.'+host)))throw Error('invalid_payment');
+ return{amount:value.amount,url:value.url};
+}
 export async function marathonRequest(request,env,fetchImpl,{json,validateTurnstile,publicError}){
  const url=new URL(request.url),catalog=url.pathname==='/api/marathons';
  const origin=request.headers.get('Origin');
@@ -24,7 +30,11 @@ export async function marathonRequest(request,env,fetchImpl,{json,validateTurnst
   const response=await fetchImpl(env.MARATHON_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.MARATHON_GATEWAY_SECRET,payload}),redirect:'follow'});
   const result=await response.json();
   if(!response.ok||!result.ok)return json({ok:false,error:publicError,...(['event_changed','study_mismatch'].includes(result.code)?{code:result.code}:{})},['event_changed','study_mismatch'].includes(result.code)?409:502,request);
-  if(!catalog)return json({ok:true},200,request);
+  if(!catalog){
+   if(payload.form_version!==2)return json({ok:true},200,request);
+   const paymentStatus=['ready','recorded','pending','review'].includes(result.paymentStatus)?result.paymentStatus:'pending';
+   return json({ok:true,paymentStatus,...(paymentStatus==='ready'?{payment:safePayment(result.payment)}:{})},200,request);
+  }
   if(!Array.isArray(result.events))throw Error();
   const events=result.events.map(e=>{if(typeof e.id!=='string'||typeof e.name!=='string'||typeof e.price!=='number'||!Number.isFinite(e.price)||e.price<0)throw Error();return{id:e.id,name:e.name,price:e.price};});
   return json({ok:true,events},200,request);

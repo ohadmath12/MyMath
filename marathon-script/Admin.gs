@@ -18,7 +18,8 @@ function mwAdminState_(ss){
  var groups=ss.getSheetByName('מרתונים').getRange('A5:K1000').getValues().filter(function(r){return r[9]&&r[7];}).map(function(r){return{id:r[7],campaign:r[9],name:r[3],date:r[1] instanceof Date?Utilities.formatDate(r[1],'Asia/Jerusalem','yyyy-MM-dd'):'',status:r[5],capacity:Math.min(6,Number(r[10])||6)};});
  var sources=mwSources_(ss);
  var people=ss.getSheetByName('משתתפי מרתונים').getRange('A5:X1000').getValues().map(function(r,i){var receipt=mwReceipt_(r),source=sources[receipt],p=source?source.payload:{};return{receipt:receipt,kind:p.kind||'',grade:p.grade||String(r[6]).split(' / ')[0],units:p.level||String(r[6]).split(' / ').slice(1).join(' / '),examDate:p.examDate||'',city:p.city||'',received:source?source.received:'',row:i+5,id:r[19],campaign:r[23],group:r[18],name:r[3],phone:String(r[4]),school:r[5],level:r[6],status:r[17],attended:r[7]==='כן',paid:Number(r[11])||0};}).filter(function(r){return r.campaign||(r.kind==='interest'&&r.id);});
- return{campaigns:campaigns,groups:groups,people:people,schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
+ people.forEach(function(person){var source=sources[person.receipt];person.checkoutAmount=source&&source.payload.checkout?source.payload.checkout.amount:null;});
+ return{campaigns:campaigns,groups:groups,people:people,paymentSettings:mwPaymentSettings_(),schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
 }
 function mwAdminCreateCampaign(data){mwRequireOwner_();
  var name=mwText_(data.name,180),grade=mwText_(data.grade,20),school=mwText_(data.school,120),price=Number(data.price);
@@ -54,7 +55,9 @@ function mwAssignCampaign_(ss,data){
  var target=data.campaign||'',current=String(p[23]||'');
  if(current===target)return{ok:true};
  if(current!==String(data.expectedCampaign||''))throw Error('השיוך השתנה; רעננו את הלוח');
- if(p[17]!=='ממתין לשיבוץ'||p[18]||p[7]==='כן'||Number(p[11])!==0||p[20]!=='')throw Error('שינוי מרתון זמין רק לפני שיבוץ, תשלום או נוכחות');
+ var checkout=source.payload.checkout,firstPrepaidAssignment=checkout&&!current&&target&&p[8]===checkout.amount;
+ if(checkout&&p[8]!==checkout.amount)throw Error('מחיר הרשומה שונה מהמחיר בטופס; יש לבדוק לפני השיבוץ');
+ if(p[17]!=='ממתין לשיבוץ'||p[18]||p[7]==='כן'||(Number(p[11])!==0&&!firstPrepaidAssignment)||p[20]!=='')throw Error('שינוי מרתון זמין רק לפני שיבוץ, תשלום או נוכחות');
  var campaign=null;
  if(target){
   campaign=ss.getSheetByName(MW_CAMPAIGNS).getRange('A5:G1000').getValues().find(function(r){return r[0]===target;});
@@ -63,5 +66,19 @@ function mwAssignCampaign_(ss,data){
   if(rows.some(function(r,j){return j!==i&&r[23]===target&&r[17]!=='בוטל'&&(r[19]===p[19]||(mwName_(r[3])===mwName_(p[3])&&String(r[4])===String(p[4])));}))throw Error('התלמיד כבר מופיע במרתון הזה; יש לבדוק את ההרשמה הקיימת');
  }
  var range=sh.getRange(i+5,1,1,24),formulas=range.getFormulas()[0],values=p.map(function(v,j){return formulas[j]||v;});
- values[8]=campaign?campaign[4]:'';values[23]=target;range.setValues([values]);SpreadsheetApp.flush();return{ok:true};
+ values[8]=checkout?checkout.amount:(campaign?campaign[4]:'');values[23]=target;range.setValues([values]);SpreadsheetApp.flush();return{ok:true};
+}
+
+function mwAdminSavePaymentSettings(data){mwRequireOwner_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{return mwSavePaymentSettings_(data);}finally{lock.releaseLock();}}
+function mwSavePaymentSettings_(data){
+ var amount=Number(data.amount),url=mwGrowUrl_(data.url),id=mwCommandId_(data.commandId);
+ if(data.amount===''||!isFinite(amount)||amount<=0||amount>10000||Math.abs(amount*100-Math.round(amount*100))>0.000001)throw Error('יש להזין סכום חיובי תקין בשקלים, עד 10,000 ₪');
+ if(data.confirmed!==true)throw Error('יש לבדוק בקישור Grow שהסכום תואם ולאשר');
+ var props=PropertiesService.getScriptProperties(),current=mwPaymentSettings_();
+ if(current.revision===id){if(current.amount!==amount||current.url!==url)throw Error('מזהה שמירה כבר שימש להגדרות אחרות');return{ok:true};}
+ if(String(data.expectedRevision||'')!==current.revision)throw Error('ההגדרות השתנו; רעננו לפני השמירה');
+ // Reusing a URL for a different amount can change an earlier registrant's checkout.
+ var all=props.getProperties();Object.keys(all).filter(function(k){return k.indexOf('MW_CHECKOUT_')===0;}).forEach(function(k){var old=JSON.parse(all[k]);if(old.url===url&&old.amount!==amount)throw Error('לסכום אחר יש ליצור קישור Grow חדש, כדי לשמור על המחיר של נרשמים קודמים');});
+ var settings={amount:amount,url:url,revision:id,updatedAt:new Date().toISOString()};
+ props.setProperty('MW_CHECKOUT_'+id,JSON.stringify(settings));props.setProperty('MW_PAYMENT_SETTINGS_V1',JSON.stringify(settings));return{ok:true};
 }

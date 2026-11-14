@@ -10,15 +10,15 @@ function mwSafe_(s){return /^[=+@-]/.test(String(s))?"'"+s:s;}
 function mwName_(s){return String(s).normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[׳״'"\u200e\u200f]/g,'').toLowerCase();}
 function mwNormalize_(a){
  if(!a||typeof a!=='object'||Array.isArray(a))throw Error('invalid_payload');
- var interest=a.request_kind==='interest';if(a.request_kind&&!interest)throw Error('invalid_kind');
+ var interest=a.request_kind==='interest',v2=interest&&a.form_version===2;if(a.request_kind&&!interest)throw Error('invalid_kind');if(a.form_version!==undefined&&!v2)throw Error('invalid_version');
  var p={id:mwText_(a.client_submission_id,64),event:interest?'':mwText_(a.event_id,80),first:mwText_(a.student_first_name,60),last:mwText_(a.student_last_name,60),school:mwText_(a.school_name,120),grade:mwText_(a.class_name,20),level:mwText_(a.units,40),parent:mwText_(a.parent_name,100),phone:mwPhone_(a.parent_phone,false),studentPhone:mwPhone_(a.student_phone,true),email:mwText_(a.parent_email||'',150),notes:mwText_(a.notes||'',1000),price:interest?'':a.quoted_price};
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.id)||(!interest&&!p.event)||!p.first||!p.last||!p.parent)throw Error('invalid_required');
- if(p.school==='אחר'){p.school=mwText_(a.school_other,120);if(!p.school)throw Error('invalid_school');}else if(MW_SCHOOLS.indexOf(p.school)<0)throw Error('invalid_school');
+ if(p.school==='אחר'){p.school=mwText_(a.school_other,120);if(!p.school)throw Error('invalid_school');}else if(!(v2&&!p.school)&&MW_SCHOOLS.indexOf(p.school)<0)throw Error('invalid_school');
  if(MW_CLASSES.indexOf(p.grade)<0||MW_LEVELS.indexOf(p.level)<0)throw Error('invalid_study');
  if(p.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email))throw Error('invalid_email');
  if(interest){
   p.kind='interest';p.city=a.school_name==='אחר'?mwText_(a.school_city||'',80):p.school.split(', ').slice(1).join(', ');
-  if(!p.city)throw Error('invalid_city');p.examDate=mwText_(a.exam_date||'',10);
+  if(!v2&&!p.city)throw Error('invalid_city');p.examDate=mwText_(a.exam_date||'',10);if(v2)p.version=2;
   if(p.examDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(p.examDate)||!isFinite(Date.parse(p.examDate+'T12:00:00Z'))||new Date(p.examDate+'T12:00:00Z').toISOString().slice(0,10)!==p.examDate))throw Error('invalid_exam_date');
  }else if(typeof p.price!=='number'||!isFinite(p.price)||p.price<0)throw Error('invalid_price');return p;
 }
@@ -50,16 +50,18 @@ function doPost(e){
 function mwIntake_(ss,p){
  var log=mwEnsureLog_(ss),records=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],old=records.findIndex(function(r){return r[0]===p.id;});
  if(old>=0){
-  if(records[old][18]!==JSON.stringify(p))throw Error('receipt_mismatch');
-  if(['נקלט','כבר רשום','נדרש בירור'].indexOf(records[old][13])>=0)return{ok:true};
-  mwProcess_(ss,log,old+2,p);return{ok:true};
+  var saved=JSON.parse(records[old][18]);if(mwRequestIdentity_(saved)!==JSON.stringify(p))throw Error('receipt_mismatch');
+  if(['נקלט','כבר רשום','נדרש בירור'].indexOf(records[old][13])<0)mwProcess_(ss,log,old+2,saved);
+  return mwIntakeResponse_(ss,log,old+2,saved);
  }
  var interest=p.kind==='interest',events=interest?[]:mwCampaignRows_(ss).filter(function(r){return String(r[7])===p.event;});
  if(!interest&&events.length===1&&(events[0][2]!==p.grade||(events[0][6]&&events[0][6]!==p.school)))throw Error('study_mismatch');
  if(!interest&&(events.length!==1||events[0][4]!==p.price))throw Error('event_changed');
+ // Freeze server-owned terms in the durable receipt before writing participants.
+ if(p.version===2)p=Object.assign({},p,{checkout:mwCheckout_()});
  var lr=Math.max(2,log.getLastRow()+1);if(lr>log.getMaxRows())log.insertRowsAfter(log.getMaxRows(),500);
  log.getRange(lr,1,1,19).setValues([[p.id,new Date(),mwSafe_(interest?'בקשה כללית — ממתינה לשיבוץ':events[0][0]),mwSafe_(p.first),mwSafe_(p.last),mwSafe_(p.school),p.grade,p.level,mwSafe_(p.parent),p.phone,p.studentPhone,mwSafe_(p.email),mwSafe_(mwRequestNotes_(p)),'ממתין','','','',p.event,JSON.stringify(p)]]);
- mwProcess_(ss,log,lr,p);return{ok:true};
+ mwProcess_(ss,log,lr,p);return mwIntakeResponse_(ss,log,lr,p);
 }
 function mwResult_(log,row,status,detail,participantRow,uid,event){log.getRange(row,14,1,5).setValues([[status,mwSafe_(detail),participantRow,uid,event]]);}
 function mwReview_(message){var e=Error(message);e.review=true;throw e;}
@@ -74,7 +76,7 @@ function mwProcess_(ss,log,lr,p){
   if(!interest&&rows.some(function(r){return (interest?mwSamePendingInterest_(r,p,sources):String(r[23])===p.event)&&mwName_(r[3])===mwName_(p.first+' '+p.last);}))mwReview_('שם זה כבר מופיע במרתון עם טלפון אחר; יש לבדוק לפני הוספת חיוב');
   var events=interest?[]:mwCampaignRows_(ss).filter(function(r){return String(r[7])===p.event;});
   if(!interest&&(events.length!==1||events[0][4]!==p.price))mwReview_('האירוע נסגר או מחירו השתנה בזמן הקליטה; לבדוק מול ההורה');
-  var ev=interest?['','','','','','','','']:events[0],index=rows.findIndex(function(r){return!r[1]&&!r[2]&&!r[17]&&!r[18]&&!r[19];});if(index<0)mwReview_('טבלת המשתתפים מלאה; יש להרחיב אותה');
+  var ev=interest?['','','','',p.checkout?p.checkout.amount:'','','','']:events[0],index=rows.findIndex(function(r){return!r[1]&&!r[2]&&!r[17]&&!r[18]&&!r[19];});if(index<0)mwReview_('טבלת המשתתפים מלאה; יש להרחיב אותה');
   var r=index+5,uid='MF-'+Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,p.phone+'|'+mwName_(p.first+' '+p.last)).map(function(b){return('0'+((b+256)%256).toString(16)).slice(-2);}).join('').slice(0,24);
   var values=[`=IF(S${r}="","",IFERROR(XLOOKUP(S${r},'מרתונים'!H$5:H$1000,'מרתונים'!B$5:B$1000),""))`,'',uid+' | '+p.first+' '+p.last,mwSafe_(p.first+' '+p.last),p.phone,mwSafe_(p.school),mwSafe_(p.grade+' / '+p.level),'',ev[4],`=IF(C${r}="","",IF(R${r}="ממתין לשיבוץ",0,IF(ISNUMBER(U${r}),U${r},IF(R${r}="נרשם",IF(ISNUMBER(I${r}),I${r},""),IF(R${r}="רשימת המתנה",0,"")))))`,`=IF(C${r}="","",IF(R${r}="ממתין לשיבוץ","לא",IF(J${r}="","טרם נקבע",IF(L${r}>=J${r},"כן","לא"))))`,'','','',`=IF(J${r}="","",J${r}-L${r})`,`=IF(C${r}="","",IF(R${r}="ממתין לשיבוץ","ממתין לשיבוץ",IF(J${r}="","חיוב טרם נקבע",IF(O${r}<0,"זכות / החזר לבדיקה",IF(O${r}=0,"שולם",IF(L${r}>0,"שולם חלקית","ממתין לתשלום"))))))`,mwSafe_('טופס מרתון: '+p.id+(mwRequestNotes_(p)?' | '+mwRequestNotes_(p):'')),'ממתין לשיבוץ','',uid,'',`=IF(C${r}="","",IF(AND(X${r}<>"",COUNTIFS(X$5:X$1000,X${r},T$5:T$1000,T${r},R$5:R$1000,"<>בוטל")>1),"הרשמה כפולה",IF(J${r}="","יש לקבוע חיוב",IF(AND(L${r}<>0,M${r}=""),"חסר תאריך תשלום",""))))`,'',ev[7]];
   sh.getRange(r,3).clearDataValidations();sh.getRange(r,5).setNumberFormat('@');sh.getRange(r,1,1,24).setValues([values]);sh.getRange(r,23).setNote('מקור: טופס המרתונים. פרטי ההורה בלשונית '+MW_LOG+'.');SpreadsheetApp.flush();mwResult_(log,lr,'נקלט','',r,uid,ev[7]);
@@ -87,3 +89,19 @@ function mwRequestNotes_(p){return [p.kind==='interest'?'בקשת השתתפות
 function mwReceipt_(r){var match=String(r[16]||'').match(/טופס מרתון: ([0-9a-f-]{36})/i);return match?match[1]:'';}
 function mwSources_(ss){var log=ss.getSheetByName(MW_LOG),out={};if(!log||log.getLastRow()<2)return out;log.getRange(2,1,log.getLastRow()-1,19).getValues().forEach(function(r){try{var p=JSON.parse(r[18]);out[r[0]]={payload:p,received:r[1] instanceof Date?Utilities.formatDate(r[1],'Asia/Jerusalem','dd/MM/yyyy'):''};}catch(e){}});return out;}
 function mwSamePendingInterest_(r,p,sources){var source=sources[mwReceipt_(r)],old=source&&source.payload;return !r[23]&&!r[18]&&r[17]==='ממתין לשיבוץ'&&old&&old.kind==='interest'&&old.school===p.school&&old.grade===p.grade&&old.level===p.level&&old.examDate===p.examDate;}
+
+function mwRequestIdentity_(p){var copy=Object.assign({},p);delete copy.checkout;return JSON.stringify(copy);}
+function mwGrowUrl_(value){var url=mwText_(value,2048);if(!/^https:\/\/(?:[a-z0-9-]+\.)*(?:grow\.link|meshulam\.co\.il|grow\.business)\/[^\s<>"\\]+$/i.test(url))throw Error('יש להזין קישור תשלום מאובטח של Grow');return url;}
+function mwPaymentSettings_(){var raw=PropertiesService.getScriptProperties().getProperty('MW_PAYMENT_SETTINGS_V1');return raw?JSON.parse(raw):{amount:100,url:'',revision:''};}
+function mwCheckout_(){var s=mwPaymentSettings_();if(!s.url)return null;if(typeof s.amount!=='number'||!isFinite(s.amount)||s.amount<=0)throw Error('invalid_payment_settings');return{amount:s.amount,url:mwGrowUrl_(s.url),revision:s.revision};}
+function mwIntakeResponse_(ss,log,row,p){
+ if(p.version!==2)return{ok:true};
+ var receipt=log.getRange(row,1,1,19).getValues()[0];
+ if(receipt[13]!=='נקלט')return{ok:true,paymentStatus:'review'};
+ var person=ss.getSheetByName('משתתפי מרתונים').getRange(Number(receipt[15]),1,1,24).getValues()[0];
+ if(mwReceipt_(person)!==p.id||person[17]==='בוטל')return{ok:true,paymentStatus:'review'};
+ if(Number(person[11])>0)return{ok:true,paymentStatus:'recorded'};
+ if(!p.checkout)return{ok:true,paymentStatus:'pending'};
+ if(person[8]!==p.checkout.amount||person[20]!=='')return{ok:true,paymentStatus:'review'};
+ return{ok:true,paymentStatus:'ready',payment:{amount:p.checkout.amount,url:mwGrowUrl_(p.checkout.url)}};
+}
