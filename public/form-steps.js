@@ -72,4 +72,5 @@
   form.addEventListener('invalid',event=>{const index=pages.findIndex(page=>page.contains(event.target));if(index>=0&&index!==current)show(index,false);},true);
   document.addEventListener('reveal-form-field',event=>{const index=pages.findIndex(page=>page.contains(event.detail));if(index>=0)show(index,false);});
   show(0,false);reviewPersonalDetails();
+  if(window.FormPaymentStep && form.id==='trial-form' && !window.trialInviteToken) window.FormPaymentStep.configure(true);
 })();

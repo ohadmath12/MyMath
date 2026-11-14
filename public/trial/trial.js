@@ -52,4 +52,5 @@ function showTrialPayment() {
  const note=document.createElement('p');note.textContent='עלות שיעור הניסיון: 160 ₪. התשלום נפרד מההרשמה למסגרת קבועה. בעמוד התשלום הזינו את אותו טלפון הורה ואת שם התלמיד שמילאתם כאן. אם כבר שילמתם, אין לשלם שוב.';
  const link=document.createElement('a');link.href=url.href;link.textContent='לתשלום מאובטח ב־Grow · 160 ₪';link.target='_blank';link.rel='noopener noreferrer';
  container.replaceChildren(note,link);container.hidden=false;
+ if(window.FormPaymentStep){window.FormPaymentStep.configure(true);window.FormPaymentStep.show(container);}
 }
