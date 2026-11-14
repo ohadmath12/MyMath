@@ -16,10 +16,11 @@ window.showPersonalTrialPayment=function(data){
  note.textContent=data.paid?'התשלום כבר תועד במערכת. אין לשלם שוב.':data.needs_review?'הפרטים נקלטו לבדיקה כדי למנוע כפילות. ניצור איתכם קשר לפני המשך התשלום.':`מחיר שיעור הניסיון שסוכם: ${price}. התשלום חד־פעמי, בנפרד מההרשמה למסגרת קבועה. אם כבר שילמתם, אין לשלם שוב — פנו אלינו לאישור.`;
  if(cash&&!data.paid&&!data.needs_review)note.textContent=`הפרטים נקלטו. מחיר שיעור הניסיון שסוכם: ${price}, לתשלום במזומן מול המרכז. אין צורך להזין אשראי. מילוי הטופס אינו אישור שהתקבל תשלום או שיבוץ קבוע.`;
  container.append(note);
- if(!cash&&data.payment_url&&!data.paid){
+ if(!cash&&data.payment_url&&!data.paid&&!data.needs_review){
   const u=new URL(data.payment_url);
   if(u.protocol!=='https:'||!['grow.link','meshulam.co.il','grow.business'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h)))return;
   const link=document.createElement('a');link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';link.textContent=`לתשלום מאובטח ב־Grow · ${price}`;container.append(link);
+  if(window.FormPaymentStep){window.FormPaymentStep.configure(true);window.FormPaymentStep.show(container);}
  }else if(!cash&&!data.paid&&!data.needs_review){note.textContent+=' הקישור לתשלום אינו זמין כרגע. פנו אלינו להשלמת הטיפול.';}
 };
 if(window.trialInviteToken){
@@ -28,9 +29,10 @@ if(window.trialInviteToken){
  const priceNote=f.querySelector('.note');priceNote.textContent='טוענים את המחיר שסוכם…';
  window.trialInviteRpc('read_trial_invitation',{token:window.trialInviteToken}).then(data=>{
   window.trialInviteTerms=data;window.trialInviteReady=true;
+  if(window.FormPaymentStep)window.FormPaymentStep.configure(data.payment_method!=='cash'&&!data.paid&&!data.needs_review);
   const cash=data.payment_method==='cash';
  const price=new Intl.NumberFormat('he-IL',{style:'currency',currency:'ILS'}).format(data.amount_agorot/100);
-  priceNote.textContent=`מחיר שיעור הניסיון שסוכם: ${price}, בתשלום חד־פעמי. לאחר אישור הפרטים יוצג הקישור לתשלום. מילוי הטופס אינו אישור שיבוץ או תשלום.`;
+  priceNote.textContent=`מחיר שיעור הניסיון שסוכם: ${price}, בתשלום חד־פעמי. לאחר אישור הפרטים תעברו לשלב התשלום המאובטח. מילוי הטופס אינו אישור שיבוץ או תשלום.`;
   if(cash)priceNote.textContent=`מחיר שיעור הניסיון שסוכם: ${price}, לתשלום במזומן. אין צורך באשראי. אישור הפרטים אינו אישור שהתקבל תשלום או שיבוץ.`;
   const badge=document.createElement('p');badge.className='note';badge.textContent=`מחיר אישי לשיעור הניסיון: ${price}`;f.before(badge);
   if(data.submitted){msg.textContent='הפרטים כבר נקלטו. אין צורך לשלוח טופס נוסף.';window.showPersonalTrialPayment(data);return;}

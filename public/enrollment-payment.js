@@ -84,6 +84,7 @@
           if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
           if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash'))) throw Error('invalid_unpaid_trial');
           ready = true;
+          if (window.FormPaymentStep) window.FormPaymentStep.configure(terms && terms.monthly_method !== 'cash' && terms.initial_agorot > 0 && safeLink(terms.payment_url));
           if (terms) render(box,false); else box.hidden=true;
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });
     },
@@ -91,6 +92,7 @@
       if (saved || !terms || !ready) return;
       saved = true; box.hidden = true;
       var result = document.createElement('section'); result.className='enrollment-payment-terms'; render(result,true); document.getElementById('success-card').appendChild(result);
+      if (window.FormPaymentStep) window.FormPaymentStep.show(result);
     }
   };
 })();
