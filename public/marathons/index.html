@@ -1,20 +1,11 @@
 <!doctype html>
-<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="referrer" content="no-referrer"><title>MyTheMatix · הרשמה למרתון</title><meta name="description" content="משאירים פרטים למרתון במתמטיקה ומתאמים קבוצה מתאימה."><link rel="icon" href="../assets/logo.png"><link rel="stylesheet" href="../styles.css"><link rel="stylesheet" href="marathons.css"><script src="../config.js" defer></script><script src="marathons.js?v=20261105" defer></script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=marathonTurnstileReady&render=explicit" defer></script></head>
-<body><header class="hero"><div class="container"><span class="logo"><img class="logo-mark" src="../assets/logo.png" alt="MyTheMatix"></span><div class="hero-content"><span class="eyebrow">מתכוננים יחד, מגיעים מוכנים</span><h1>מתכוננים למרתון<br><span>במתמטיקה</span></h1><p class="hero-lead">משאירים פרטים על התלמיד/ה ועל הלימודים. נחזור אליכם להתאמת קבוצה ולתיאום המועד.</p></div></div></header>
-<main class="container marathon-main"><div class="form-card"><form id="marathon-form">
-<div class="form-group"><h2 class="form-group-title"><span class="step">01</span> פרטי התלמיד/ה</h2><div class="field-grid"><div class="field"><label for="student_first_name">שם פרטי<span class="required-mark">*</span></label><input id="student_first_name" name="student_first_name" required maxlength="60" autocomplete="given-name"></div><div class="field"><label for="student_last_name">שם משפחה<span class="required-mark">*</span></label><input id="student_last_name" name="student_last_name" required maxlength="60" autocomplete="family-name"></div><div class="field"><label for="school_name">בית ספר<span class="required-mark">*</span></label><select id="school_name" name="school_name" required>
-                  <option value="" disabled selected>בחרו בית ספר</option>
-
-                  <option value="חטיבת הביניים הראשונים, גני תקווה">חטיבת הביניים הראשונים, גני תקווה</option>
-                  <option value="חטיבת בראשית, גני תקווה">חטיבת בראשית, גני תקווה</option>
-                  <option value="תיכון מיתר, גני תקווה">תיכון מיתר, גני תקווה</option>
-                  <option value="חטיבת בן צבי, קריית אונו">חטיבת בן צבי, קריית אונו</option>
-                  <option value="תיכון בן צבי, קריית אונו">תיכון בן צבי, קריית אונו</option>
-                  <option value="קציר, קריית אונו">קציר, קריית אונו</option>
-                  <option value="חטיבת שמעון פרס, קריית אונו">חטיבת שמעון פרס, קריית אונו</option>
-                  <option value="חטיבת שז&quot;ר, קריית אונו">חטיבת שז&quot;ר, קריית אונו</option>
-                <option value="אחר">בית ספר אחר</option></select></div><div class="field" id="school-other-field" hidden><label for="school_other">שם בית הספר<span class="required-mark">*</span></label><input id="school_other" name="school_other" maxlength="120" disabled><label for="school_city">עיר בית הספר<span class="required-mark">*</span></label><input id="school_city" name="school_city" maxlength="80" disabled></div><div class="field"><label for="class_name">כיתה<span class="required-mark">*</span></label><select id="class_name" name="class_name" required>
-                  <option value="" disabled selected>בחרו כיתה</option>
+<html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>MyTheMatix · הרשמה למרתון</title><meta name="description" content="נרשמים למרתון במתמטיקה ומשלמים לאחר שמירת הפרטים."><link rel="icon" href="../assets/logo.png"><link rel="preload" as="image" href="../assets/logo.png"><link rel="stylesheet" href="../form-loading.css"><script src="../form-loading.js"></script><link rel="stylesheet" href="../trial/trial.css"><link rel="stylesheet" href="../forms.css"><link rel="stylesheet" href="marathons.css?v=20261114"><script src="../config.js" defer></script><script src="marathons.js?v=20261114" defer></script><script src="../form-steps.js?v=20261114" defer></script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=marathonTurnstileReady&render=explicit" defer></script></head>
+<body class="trial-page marathon-page"><div id="form-loading-screen" role="status" aria-live="polite"><img src="../assets/logo.png" alt="MyTheMatix" width="144" height="144" fetchpriority="high"><span class="form-loading-line" aria-hidden="true"></span><span>מכינים לכם את הטופס…</span></div>
+<main><div class="brand-row"><p class="brand" dir="ltr">MyTheMatix.</p><img src="../assets/logo.png" alt="לוגו MyTheMatix" width="68" height="68"></div><p class="eyebrow">מתכוננים יחד, מגיעים מוכנים</p><h1>נרשמים למרתון במתמטיקה</h1><p>ממלאים פרטים, ממשיכים לתשלום ומתאמים יחד את הקבוצה והמועד.</p>
+<form id="marathon-form" novalidate>
+<div class="form-group"><h2>פרטי ההורה</h2><div class="grid"><label for="parent_name">שם ההורה *<input id="parent_name" name="parent_name" maxlength="80" required autocomplete="name"></label><label for="parent_phone">טלפון נייד של ההורה *<input id="parent_phone" name="parent_phone" type="tel" inputmode="tel" maxlength="20" required dir="ltr" autocomplete="tel"></label></div></div>
+<div class="form-group"><h2>פרטי התלמיד/ה</h2><div class="grid"><label for="student_first_name">שם פרטי של התלמיד/ה *<input id="student_first_name" name="student_first_name" maxlength="60" required autocomplete="off"></label><label for="student_last_name">שם משפחה *<input id="student_last_name" name="student_last_name" maxlength="60" required autocomplete="off"></label><label for="class_name">כיתה *<select id="class_name" name="class_name" required>
+                  <option value="">בחרו כיתה</option>
 
 
 
@@ -24,15 +15,27 @@
                   <option value="י">י</option>
                   <option value="י״א">י״א</option>
                   <option value="י״ב">י״ב</option>
-                </select></div><div class="field"><label for="units">הקבצה / מספר יח״ל<span class="required-mark">*</span></label><select id="units" name="units" required>
-                  <option value="" disabled selected>בחרו הקבצה / יח״ל</option>
+                </select></label><div><label for="school_name">בית ספר</label><select id="school_name" name="school_name">
+                  <option value="">בחרו בית ספר</option>
+
+                  <option value="חטיבת הביניים הראשונים, גני תקווה">חטיבת הביניים הראשונים, גני תקווה</option>
+                  <option value="חטיבת בראשית, גני תקווה">חטיבת בראשית, גני תקווה</option>
+                  <option value="תיכון מיתר, גני תקווה">תיכון מיתר, גני תקווה</option>
+                  <option value="חטיבת בן צבי, קריית אונו">חטיבת בן צבי, קריית אונו</option>
+                  <option value="תיכון בן צבי, קריית אונו">תיכון בן צבי, קריית אונו</option>
+                  <option value="קציר, קריית אונו">קציר, קריית אונו</option>
+                  <option value="חטיבת שמעון פרס, קריית אונו">חטיבת שמעון פרס, קריית אונו</option>
+                  <option value="חטיבת שז&quot;ר, קריית אונו">חטיבת שז&quot;ר, קריית אונו</option>
+                <option value="אחר">בית ספר אחר</option></select><label id="school-other-field" for="school_other" hidden>שם בית הספר *<input id="school_other" name="school_other" maxlength="80" disabled></label></div><label for="units">הקבצה / מספר יח״ל *<select id="units" name="units" required>
+                  <option value="">בחרו הקבצה / יח״ל</option>
                   <option value="לא רלוונטי">לא רלוונטי</option>
                   <option value="הקבצה א">הקבצה א</option>
                   <option value="הקבצה א׳ חדשה">הקבצה א׳ חדשה</option>
                   <option value="הקבצה ב">הקבצה ב</option>
                   <option value="3 יח״ל">3 יח״ל</option><option value="4 יח״ל">4 יח״ל</option>
                   <option value="5 יח״ל">5 יח״ל</option>
-                <option value="לא ידוע עדיין">לא ידוע עדיין</option></select></div><div class="field"><label for="exam_date">מועד המבחן <span class="optional">(אם ידוע)</span></label><input id="exam_date" name="exam_date" type="date"></div><div class="field"><label for="student_phone">טלפון התלמיד/ה <span class="optional">(רשות)</span></label><input id="student_phone" name="student_phone" type="tel" inputmode="tel" dir="ltr" maxlength="20" autocomplete="off"></div></div></div>
-<div class="form-group"><h2 class="form-group-title"><span class="step">02</span> פרטי ההורה</h2><div class="field-grid"><div class="field"><label for="parent_name">שם מלא של ההורה<span class="required-mark">*</span></label><input id="parent_name" name="parent_name" required maxlength="100" autocomplete="name"></div><div class="field"><label for="parent_phone">טלפון נייד של ההורה<span class="required-mark">*</span></label><input id="parent_phone" name="parent_phone" required type="tel" inputmode="tel" dir="ltr" maxlength="20" autocomplete="tel" placeholder="050-1234567"></div><div class="field"><label for="parent_email">דוא״ל של ההורה <span class="optional">(רשות)</span></label><input id="parent_email" name="parent_email" type="email" maxlength="150" dir="ltr" autocomplete="email"></div></div></div>
-<div class="visually-hidden" aria-hidden="true"><label>השאירו ריק<input name="honeypot" tabindex="-1" autocomplete="off"></label></div>
-<div class="submit-row"><p class="privacy-note">ממלאים בקשה אחת לכל תלמיד לקראת המבחן. שליחת הפרטים אינה אישור מקום; ניצור קשר לתיאום הקבוצה, המועד ופרטי ההשתתפות.</p><div id="turnstile" aria-label="בדיקת אבטחה"></div><p id="form-error" role="alert" hidden></p><button type="submit" id="submit-btn" class="btn btn-primary" disabled>שליחת בקשת השתתפות</button></div></form><div id="success-card" class="marathon-success" hidden tabindex="-1"><span class="success-tick" aria-hidden="true">✓</span><h2>הפרטים התקבלו</h2><p>הפרטים התקבלו! נחזור אליכם לתיאום הקבוצה, המועד ופרטי ההשתתפות.</p><button type="button" id="another" class="btn btn-ghost">מילוי בקשה נוספת</button></div></div></main><footer><div class="container"><p>MyTheMatix · לומדים להבין, מצליחים להתקדם</p></div></footer></body></html>
+                <option value="לא ידוע עדיין">לא ידוע עדיין</option></select></label></div></div>
+<div class="trap" aria-hidden="true"><label>השאירו ריק<input name="honeypot" tabindex="-1" autocomplete="off"></label></div>
+<div class="submit-row"><h2>שמירת פרטים והמשך לתשלום</h2><p class="note">לאחר שמירת הפרטים יוצגו הסכום וקישור לתשלום מאובטח ב־Grow. הקבוצה והמועד נקבעים בתיאום אישי; מילוי הטופס אינו אישור שיבוץ. אם כבר שילמתם, אין לשלם שוב. לבירור או לשינוי פנו אלינו ישירות.</p><div id="turnstile" aria-label="בדיקת אבטחה"></div><button type="submit" id="submit-btn" disabled>שמירת פרטים והמשך לתשלום</button></div><p id="form-error" role="alert" hidden></p></form>
+<div id="success-card" hidden tabindex="-1"><span class="success-tick" aria-hidden="true">✓</span><h2>הפרטים נשמרו</h2><p>נחזור אליכם לתיאום הקבוצה והמועד.</p><div id="marathon-payment" hidden><h3 id="payment-heading"></h3><p id="payment-message"></p><a id="payment-link" target="_blank" rel="noopener noreferrer" hidden>לתשלום מאובטח ב־Grow</a></div><p class="note">פתיחת קישור התשלום אינה אישור שהתשלום התקבל. אם כבר שילמתם, אין לשלם שוב.</p><button type="button" id="another" class="secondary">הרשמת תלמיד/ה נוסף/ת</button></div>
+<p class="footer-note">MyTheMatix · לומדים להבין, מצליחים להתקדם</p></main></body></html>

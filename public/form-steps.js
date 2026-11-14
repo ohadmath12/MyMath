@@ -1,10 +1,11 @@
 /* Presentation only: existing submission handlers and payloads remain authoritative. */
 (() => {
   'use strict';
-  const form = document.querySelector('#registration-form, #trial-form, #lead-form');
+  const form = document.querySelector('#registration-form, #trial-form, #lead-form, #marathon-form');
   if (!form) return;
   const inquiry = form.id === 'lead-form';
-  const trial = form.id === 'trial-form' || inquiry;
+  const marathon = form.id === 'marathon-form';
+  const trial = form.id === 'trial-form' || inquiry || marathon;
   const pages = [];
   const titles = inquiry ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : trial ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : ['על התוכנית', 'פרטי הורה', 'פרטי תלמיד', 'תקנון וחתימה'];
   const add = nodes => {
@@ -15,7 +16,7 @@
     nodes.forEach(node => section.append(node));
     form.append(section); pages.push(section);
   };
-  if (inquiry) {
+  if (inquiry || marathon) {
     const groups=[...form.querySelectorAll('.form-group')];
     add([groups[0]]);add([groups[1]]);add([form.querySelector('.submit-row')]);
   } else if (trial) {
@@ -71,5 +72,6 @@
   },true);
   form.addEventListener('invalid',event=>{const index=pages.findIndex(page=>page.contains(event.target));if(index>=0&&index!==current)show(index,false);},true);
   document.addEventListener('reveal-form-field',event=>{const index=pages.findIndex(page=>page.contains(event.detail));if(index>=0)show(index,false);});
+  if(marathon)form.addEventListener('reset',()=>show(0,false));
   show(0,false);reviewPersonalDetails();
 })();

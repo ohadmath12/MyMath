@@ -10,8 +10,16 @@ window.marathonTurnstileReady=function(){
  var config=window.MYTHEMATIX_CONFIG;if(!config||!config.turnstileSiteKey){showError('הטופס אינו זמין כרגע. נסו שוב מאוחר יותר.');return;}
  widget=window.turnstile.render('#turnstile',{sitekey:config.turnstileSiteKey,action:'marathon',callback:function(t){challenge=t;updateButton();},'expired-callback':function(){challenge='';updateButton();},'error-callback':function(){challenge='';updateButton();showError('אימות הטופס נכשל. נסו לרענן את הדף.');}});
 };
-function schoolChanged(){var other=document.getElementById('school_name').value==='אחר';document.getElementById('school-other-field').hidden=!other;['school_other','school_city'].forEach(function(id){var input=document.getElementById(id);input.disabled=!other;input.required=other;});}
+function schoolChanged(){var other=document.getElementById('school_name').value==='אחר';document.getElementById('school-other-field').hidden=!other;var input=document.getElementById('school_other');input.disabled=!other;input.required=other;}
 document.getElementById('school_name').addEventListener('change',schoolChanged);
+function showPayment(body){
+ var panel=document.getElementById('marathon-payment'),link=document.getElementById('payment-link'),heading=document.getElementById('payment-heading'),message=document.getElementById('payment-message');
+ panel.hidden=false;link.hidden=true;link.removeAttribute('href');heading.textContent='המשך ההרשמה';
+ message.textContent=body.paymentStatus==='recorded'?'כבר תועד תשלום עבור הרשמה זו. לבירור יתרה או שיבוץ פנו אלינו; אין לשלם שוב.':body.paymentStatus==='review'?'הבקשה נשמרה לבדיקה, וייתכן שקיימת הרשמה קודמת. נחזור אליכם להמשך; אין צורך לשלוח שוב או לשלם שוב.':'הפרטים נשמרו. נחזור אליכם עם פרטי התשלום והתיאום; אין צורך למלא שוב את הטופס.';
+ var p=body.payment;if(body.paymentStatus!=='ready'||!p||typeof p.amount!=='number'||!Number.isFinite(p.amount)||p.amount<=0||p.amount>10000)return;
+ try{var u=new URL(p.url);if(u.protocol!=='https:'||u.username||u.password||u.port||!['grow.link','meshulam.co.il','grow.business'].some(function(h){return u.hostname===h||u.hostname.endsWith('.'+h);}))return;}catch(e){return;}
+ heading.textContent='תשלום חד־פעמי: '+p.amount.toLocaleString('he-IL')+' ₪';message.textContent='ב־Grow מלאו את אותו טלפון הורה ואת שם התלמיד/ה, כדי שנוכל להתאים את התשלום להרשמה.';link.href=u.href;link.hidden=false;
+}
 function phone(value,optional){var p=String(value||'').replace(/[\s().-]/g,'').replace(/^(?:\+972|00972)/,'0');return optional&&!p?'':/^05\d{8}$/.test(p)?p:null;}
 // A timeout releases the form, while an unchanged retry retains its receipt ID.
 function submit(data){return new Promise(function(resolve,reject){
@@ -22,11 +30,11 @@ function submit(data){return new Promise(function(resolve,reject){
 });}
 form.addEventListener('submit',function(e){
  e.preventDefault();if(pending||!challenge||!form.reportValidity())return;showError('');
- var data={};new FormData(form).forEach(function(v,k){data[k]=v;});delete data['cf-turnstile-response'];data.request_kind='interest';data.parent_phone=phone(data.parent_phone,false);data.student_phone=phone(data.student_phone,true);
+ var data={};new FormData(form).forEach(function(v,k){data[k]=v;});delete data['cf-turnstile-response'];data.request_kind='interest';data.form_version=2;data.parent_phone=phone(data.parent_phone,false);
  if(data.parent_phone===null||data.student_phone===null){showError('יש להזין מספר נייד ישראלי תקין, כולל קידומת.');return;}
  var canonical=JSON.stringify(data);if(canonical!==submittedPayload){submissionId=uuid();submittedPayload=canonical;}data.client_submission_id=submissionId;data.turnstile_token=challenge;
  pending=true;updateButton();button.textContent='שומרים את הבקשה…';
- submit(data).then(function(){form.hidden=true;success.hidden=false;success.focus();submissionId='';submittedPayload='';}).catch(function(e){showError(e.message||'לא הצלחנו לשמור כרגע. נסו שוב.');}).finally(function(){pending=false;challenge='';button.textContent='שליחת בקשת השתתפות';if(window.turnstile&&widget!==undefined)window.turnstile.reset(widget);updateButton();});
+ submit(data).then(function(body){showPayment(body);form.hidden=true;success.hidden=false;success.focus();submissionId='';submittedPayload='';}).catch(function(e){showError(e.message||'לא הצלחנו לשמור כרגע. נסו שוב.');}).finally(function(){pending=false;challenge='';button.textContent='שמירת פרטים והמשך לתשלום';if(window.turnstile&&widget!==undefined)window.turnstile.reset(widget);updateButton();});
 });
-document.getElementById('another').addEventListener('click',function(){form.reset();schoolChanged();success.hidden=true;form.hidden=false;showError('');document.getElementById('student_first_name').focus();});
+document.getElementById('another').addEventListener('click',function(){form.reset();schoolChanged();success.hidden=true;form.hidden=false;showError('');document.getElementById('parent_name').focus();});
 })();
