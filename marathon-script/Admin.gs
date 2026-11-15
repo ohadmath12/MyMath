@@ -18,8 +18,8 @@ function mwAdminState_(ss){
  var groups=ss.getSheetByName('מרתונים').getRange('A5:K1000').getValues().filter(function(r){return r[9]&&r[7];}).map(function(r){return{id:r[7],campaign:r[9],name:r[3],date:r[1] instanceof Date?Utilities.formatDate(r[1],'Asia/Jerusalem','yyyy-MM-dd'):'',status:r[5],capacity:Math.min(6,Number(r[10])||6)};});
  var sources=mwSources_(ss);
  var people=ss.getSheetByName('משתתפי מרתונים').getRange('A5:X1000').getValues().map(function(r,i){var receipt=mwReceipt_(r),source=sources[receipt],p=source?source.payload:{};return{receipt:receipt,kind:p.kind||'',grade:p.grade||String(r[6]).split(' / ')[0],units:p.level||String(r[6]).split(' / ').slice(1).join(' / '),examDate:p.examDate||'',city:p.city||'',received:source?source.received:'',row:i+5,id:r[19],campaign:r[23],group:r[18],name:r[3],phone:String(r[4]),school:r[5],level:r[6],status:r[17],attended:r[7]==='כן',paid:Number(r[11])||0};}).filter(function(r){return r.campaign||(r.kind==='interest'&&r.id);});
- people.forEach(function(person){var source=sources[person.receipt];person.checkoutAmount=source&&source.payload.checkout?source.payload.checkout.amount:null;});
- return{campaigns:campaigns,groups:groups,people:people,paymentSettings:mwPaymentSettings_(),schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
+ people.forEach(function(person){var source=sources[person.receipt];person.checkoutAmount=source&&source.payload.checkout?source.payload.checkout.amount:null;person.paymentMethod=source&&source.payload.checkout?source.payload.checkout.method||'grow':'';});
+ return{campaigns:campaigns,groups:groups,people:people,invitations:mwAdminInvitations_(),paymentSettings:mwPaymentSettings_(),schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
 }
 function mwAdminCreateCampaign(data){mwRequireOwner_();
  var name=mwText_(data.name,180),grade=mwText_(data.grade,20),school=mwText_(data.school,120),price=Number(data.price);
@@ -82,3 +82,18 @@ function mwSavePaymentSettings_(data){
  var settings={amount:amount,url:url,revision:id,updatedAt:new Date().toISOString()};
  props.setProperty('MW_CHECKOUT_'+id,JSON.stringify(settings));props.setProperty('MW_PAYMENT_SETTINGS_V1',JSON.stringify(settings));return{ok:true};
 }
+
+function mwAdminCreateInvitation(data){mwRequireOwner_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{
+ var id=mwCommandId_(data.commandId),first=mwText_(data.first,60),last=mwText_(data.last,60),phone=mwPhone_(data.phone,false),amount=Number(data.amount),method=data.method;
+ if(!first||!last||!['grow','cash'].includes(method)||data.amount===''||!isFinite(amount)||amount<=0||amount>10000||Math.abs(amount*100-Math.round(amount*100))>0.000001)throw Error('יש למלא שם תלמיד, טלפון הורה וסכום תקינים');
+ var standard=mwPaymentSettings_(),url=method==='cash'?'':(amount===100&&!data.url?standard.url:mwGrowUrl_(data.url));if(method==='grow'&&(!url||data.confirmed!==true))throw Error('יש לבדוק ולאשר שקישור Grow מתאים לסכום');
+ var props=PropertiesService.getScriptProperties(),old=props.getProperty('MW_INV_'+id),terms={id:id,first:first,last:last,phone:phone,amount:amount,method:method,url:url};
+ if(old){var previous=JSON.parse(old);if(JSON.stringify(previous.terms)!==JSON.stringify(terms))throw Error('הפרטים השתנו; רעננו ונסו שוב');return{url:previous.link};}
+ var all=props.getProperties();Object.keys(all).filter(function(k){return k.indexOf('MW_INV_')===0&&k.indexOf('MW_INV_TOKEN_')!==0;}).forEach(function(k){var previous=JSON.parse(all[k]);if(url&&previous.url===url&&previous.amount!==amount)throw Error('למחיר שונה נדרש קישור Grow אחר');});
+ if(url&&url===standard.url&&amount!==standard.amount)throw Error('קישור ברירת המחדל אינו מתאים למחיר האישי');
+ var token=(Utilities.getUuid()+Utilities.getUuid()).replace(/-/g,''),link='https://ohadmath12.github.io/MyMath/marathons/#invite='+token;
+ var record=Object.assign({},terms,{terms:terms,expires:Date.now()+30*86400000,link:link});props.setProperty('MW_INV_'+id,JSON.stringify(record));props.setProperty('MW_INV_TOKEN_'+mwTokenHash_(token),id);return{url:link};
+ }finally{lock.releaseLock();}}
+function mwAdminRevokeInvitation(data){mwRequireOwner_();var id=mwCommandId_(data.id),lock=LockService.getScriptLock();lock.waitLock(20000);try{var props=PropertiesService.getScriptProperties(),raw=props.getProperty('MW_INV_'+id);if(!raw)throw Error('ההזמנה לא נמצאה');var p=JSON.parse(raw);p.revoked=true;props.setProperty('MW_INV_'+id,JSON.stringify(p));return{ok:true};}finally{lock.releaseLock();}}
+
+function mwAdminInvitations_(){var all=PropertiesService.getScriptProperties().getProperties();return Object.keys(all).filter(function(k){return k.indexOf('MW_INV_')===0&&k.indexOf('MW_INV_TOKEN_')!==0;}).map(function(k){var p=JSON.parse(all[k]);return{id:p.id,name:p.first+' '+p.last,amount:p.amount,method:p.method,url:p.link,revoked:!!p.revoked,expires:p.expires};}).sort(function(a,b){return b.expires-a.expires;});}

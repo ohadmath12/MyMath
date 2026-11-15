@@ -42,9 +42,9 @@ function doPost(e){
   if(a.operation==='marathon_catalog')result={ok:true,events:mwCatalog_(ss)};
   else if(a.operation==='marathon_intake'){
    var p=mwNormalize_(a),lock=LockService.getScriptLock();lock.waitLock(20000);
-   try{result=mwIntake_(ss,p);}finally{lock.releaseLock();}
+   try{if(a.invitation_token)p=mwBindInvitation_(p,a.invitation_token);result=mwIntake_(ss,p);}finally{lock.releaseLock();}
   }else throw Error('invalid_operation');
- }catch(error){console.error('Marathon intake: '+String(error.message));result={ok:false,code:['event_changed','study_mismatch'].indexOf(error.message)>=0?error.message:'intake_failed'};}
+ }catch(error){console.error('Marathon intake: '+String(error.message));result={ok:false,code:['event_changed','study_mismatch','invalid_invitation','invitation_identity'].indexOf(error.message)>=0?error.message:'intake_failed'};}
  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 function mwIntake_(ss,p){
@@ -58,7 +58,7 @@ function mwIntake_(ss,p){
  if(!interest&&events.length===1&&(events[0][2]!==p.grade||(events[0][6]&&events[0][6]!==p.school)))throw Error('study_mismatch');
  if(!interest&&(events.length!==1||events[0][4]!==p.price))throw Error('event_changed');
  // Freeze server-owned terms in the durable receipt before writing participants.
- if(p.version===2)p=Object.assign({},p,{checkout:mwCheckout_()});
+ if(p.version===2)p=Object.assign({},p,{checkout:p.invitationId?mwInvitationTerms_(p.invitationId):mwCheckout_()});
  var lr=Math.max(2,log.getLastRow()+1);if(lr>log.getMaxRows())log.insertRowsAfter(log.getMaxRows(),500);
  log.getRange(lr,1,1,19).setValues([[p.id,new Date(),mwSafe_(interest?'בקשה כללית — ממתינה לשיבוץ':events[0][0]),mwSafe_(p.first),mwSafe_(p.last),mwSafe_(p.school),p.grade,p.level,mwSafe_(p.parent),p.phone,p.studentPhone,mwSafe_(p.email),mwSafe_(mwRequestNotes_(p)),'ממתין','','','',p.event,JSON.stringify(p)]]);
  mwProcess_(ss,log,lr,p);return mwIntakeResponse_(ss,log,lr,p);
@@ -103,5 +103,12 @@ function mwIntakeResponse_(ss,log,row,p){
  if(Number(person[11])>0)return{ok:true,paymentStatus:'recorded'};
  if(!p.checkout)return{ok:true,paymentStatus:'pending'};
  if(person[8]!==p.checkout.amount||person[20]!=='')return{ok:true,paymentStatus:'review'};
+ if(p.checkout.method==='cash')return{ok:true,paymentStatus:'cash',amount:p.checkout.amount};
  return{ok:true,paymentStatus:'ready',payment:{amount:p.checkout.amount,url:mwGrowUrl_(p.checkout.url)}};
 }
+
+function mwInvitation_(token){if(typeof token!=='string'||! /^[a-f0-9]{64}$/.test(token))throw Error('invalid_invitation');var props=PropertiesService.getScriptProperties(),key=mwTokenHash_(token),raw=props.getProperty('MW_INV_TOKEN_'+key);if(!raw)throw Error('invalid_invitation');var p=JSON.parse(props.getProperty('MW_INV_'+raw)||'null');if(!p||p.revoked||Date.now()>p.expires)throw Error('invalid_invitation');return p;}
+function mwTokenHash_(token){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,token).map(function(b){return('0'+((b+256)%256).toString(16)).slice(-2);}).join('');}
+function mwInvitationTerms_(id){var p=JSON.parse(PropertiesService.getScriptProperties().getProperty('MW_INV_'+id)||'null');if(!p||p.revoked||Date.now()>p.expires)throw Error('invalid_invitation');return{amount:p.amount,url:p.url,method:p.method,revision:p.id};}
+
+function mwBindInvitation_(p,token){var invitation=mwInvitation_(token);if(p.version!==2||mwName_(p.first)!==mwName_(invitation.first)||mwName_(p.last)!==mwName_(invitation.last)||p.phone!==invitation.phone)throw Error("invitation_identity");p.id=invitation.id;p.invitationId=invitation.id;return p;}

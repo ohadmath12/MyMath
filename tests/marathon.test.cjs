@@ -62,3 +62,14 @@ for(const url of ['http://pay.grow.link/x','https://pay.grow.link.evil.test/x','
  for(const amount of [0,-1,10000.01,100.001,NaN,Infinity,''])assert.throws(()=>savePayment(amount,'https://pay.grow.link/invalid'));
 }
 console.log('PASS: checkout validation, optional school, no payment before durable receipt, frozen terms, duplicate suppression, partial-payment suppression, failure recovery, prepaid assignment, owner-only versioned settings and URL reuse protection.');
+
+// Personal invitations bind one student and preserve terms independently of defaults.
+c.Utilities.getUuid=()=>crypto.randomUUID();c.LockService={getScriptLock:()=>({waitLock(){},releaseLock(){}})};c.Session={getActiveUser:()=>({getEmail:()=> 'ohadmath12@gmail.com'})};
+for(const method of ['cash','grow']){const f=fixture();savePayment();const commandId=crypto.randomUUID(),data={commandId,first:'בדיקת',last:'מערכת',phone:'0500000000',amount:75,method,url:method==='grow'?'https://pay.grow.link/personal':'',confirmed:true};const result=c.mwAdminCreateInvitation(data),token=result.url.split('#invite=')[1];assert.equal(c.mwAdminCreateInvitation(data).url,result.url);assert.equal(c.mwInvitation_(token).amount,75);assert.throws(()=>c.mwBindInvitation_(modern({parent_phone:'0500000001'}),token),/invitation_identity/);assert.throws(()=>c.mwBindInvitation_(modern({student_first_name:'אחר'}),token),/invitation_identity/);
+ const p=c.mwBindInvitation_(modern(),token),r=c.mwIntake_(f.ss,p);assert.equal(r.paymentStatus,method==='cash'?'cash':'ready');assert.equal(f.ps.rows[4][8],75);assert.equal(f.ps.rows[4][11],'');if(method==='cash')assert.equal(r.payment,undefined);else assert.equal(r.payment.amount,75);
+ const retry=c.mwIntake_(f.ss,c.mwBindInvitation_(modern(),token));assert.equal(f.ps.rows.length,5);assert.equal(retry.paymentStatus,r.paymentStatus);assert.throws(()=>c.mwIntake_(f.ss,c.mwBindInvitation_(modern({units:'4 יח״ל'}),token)),/receipt_mismatch/);
+ c.mwAdminRevokeInvitation({id:commandId});assert.throws(()=>c.mwInvitation_(token),/invalid_invitation/);assert.equal(f.ps.rows[4][8],75);
+}
+{fixture();savePayment();const data={commandId:crypto.randomUUID(),first:'בדיקת',last:'מערכת',phone:'0500000000',amount:70,method:'grow',url:'https://pay.grow.link/test-checkout',confirmed:true};assert.throws(()=>c.mwAdminCreateInvitation(data),/ברירת המחדל/);}
+c.Session={getActiveUser:()=>({getEmail:()=>''})};for(const fn of ['mwAdminCreateInvitation','mwAdminRevokeInvitation'])assert.throws(()=>c[fn]({}),/בעל החשבון/);
+console.log('PASS: owner-only personal invitation creation/retry/revocation, bound identity, frozen custom price, cash with no checkout or recorded payment, receipt reuse and default URL protection.');

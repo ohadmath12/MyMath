@@ -11,8 +11,8 @@ function setup(fetchImpl){
  document.getElementById('success-card').hidden=true;
  const fields={student_first_name:'בדיקת',student_last_name:'מערכת',parent_phone:'050-0000000',student_phone:'',parent_name:'הורה',school_name:'קציר, קריית אונו',class_name:'י״א',units:'5 יח״ל',exam_date:'2099-02-20'};
  const window={MYTHEMATIX_CONFIG:{apiEndpoint:'https://gateway.test/api/register',turnstileSiteKey:'public'},turnstile:{render(_s,opts){challenge=opts.callback;return 1;},reset(){}}};
- vm.runInNewContext(source,{document,window,location:{href:'https://form.test/marathons/?event=old-link'},URL,Promise,AbortController,crypto:{randomUUID:()=>`uuid-${++uuid}`},FormData:class{forEach(fn){Object.entries(fields).forEach(([k,v])=>fn(v,k));}},fetch:(url,options)=>{calls.push({url,options});return fetchImpl(calls.length,options);},setTimeout(fn){timers.set(++id,fn);return id;},clearTimeout:i=>timers.delete(i)});window.marathonTurnstileReady();
- return{elements,calls,fields,token:()=>challenge('token'),send:()=>elements['marathon-form'].listeners.submit({preventDefault(){}}),async timeout(){for(const fn of [...timers.values()])fn();await flush();}};
+ vm.runInNewContext(source,{document,window,location:{hash:'',href:'https://form.test/marathons/?event=old-link'},URL,URLSearchParams,Promise,AbortController,crypto:{randomUUID:()=>`uuid-${++uuid}`},FormData:class{forEach(fn){Object.entries(fields).forEach(([k,v])=>fn(v,k));}},fetch:(url,options)=>{calls.push({url,options});return fetchImpl(calls.length,options);},setTimeout(fn){timers.set(++id,fn);return id;},clearTimeout:i=>timers.delete(i)});window.marathonTurnstileReady();
+ return{elements,calls,fields,window,token:()=>challenge('token'),send:()=>elements['marathon-form'].listeners.submit({preventDefault(){}}),async timeout(){for(const fn of [...timers.values()])fn();await flush();}};
 }
 test('no catalog dependency; trial-like general request reaches the protected endpoint',async()=>{
  const t=setup(()=>Promise.resolve({ok:true,json:async()=>({ok:true})}));assert.equal(t.calls.length,0);t.token();assert.equal(t.elements['submit-btn'].disabled,false);t.send();await flush();assert.equal(t.calls.length,1);const p=JSON.parse(t.calls[0].options.body);assert.equal(t.calls[0].url,'https://gateway.test/api/marathon');assert.equal(p.request_kind,'interest');assert.equal(p.form_version,2);assert.equal(p.event_id,undefined);assert.equal(p.quoted_price,undefined);assert.equal(p.exam_date,'2099-02-20');assert.equal(p.parent_phone,'0500000000');assert.equal(t.elements['success-card'].hidden,false);
@@ -33,3 +33,12 @@ test('checkout appears only after confirmed save, with safe provider URL and ret
 for(const response of [{ok:true,paymentStatus:'review'},{ok:true,paymentStatus:'recorded'},{ok:true,paymentStatus:'ready',payment:{amount:100,url:'https://grow.link.evil.test/x'}},{ok:true,paymentStatus:'ready',payment:{amount:-10,url:'https://pay.grow.link/x'}}])test('reviewed, paid and invalid checkouts never offer a charge: '+JSON.stringify(response),async()=>{
  const t=setup(()=>Promise.resolve({ok:true,json:async()=>response}));t.token();t.send();await flush();assert.equal(t.elements['success-card'].hidden,false);assert.equal(t.elements['payment-link'].hidden,true);assert.equal(t.elements['payment-link'].href,undefined);
 });
+
+test('final payment step preserves another-child action and unpaid disclaimer',async()=>{
+ const t=setup(()=>Promise.resolve({ok:true,json:async()=>({ok:true,paymentStatus:'ready',payment:{amount:100,url:'https://pay.grow.link/test'}})}));
+ const configured=[],shown=[];
+ t.window.FormPaymentStep={configure:value=>configured.push(value),show:panel=>{shown.push(panel);t.elements.another.hidden=true;}};
+ t.elements.another={hidden:false};t.token();t.send();await flush();
+ assert.deepEqual(configured,[true]);assert.equal(shown.length,1);assert.equal(t.elements.another.hidden,false);assert.equal(t.elements['payment-disclaimer'].hidden,false);
+});
+test('cash confirmation skips Grow and states the agreed unpaid amount',async()=>{const t=setup(()=>Promise.resolve({ok:true,json:async()=>({ok:true,paymentStatus:'cash',amount:75})}));t.token();t.send();await flush();assert.equal(t.elements['payment-link'].hidden,true);assert.match(t.elements['payment-message'].textContent,/75.*טרם/);});
