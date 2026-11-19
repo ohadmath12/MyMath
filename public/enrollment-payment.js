@@ -88,6 +88,7 @@
             });
           }
           if (terms && terms.family_enrollment && (terms.family_enrollment !== true || terms.monthly_method !== 'recurring' || terms.payment_flow !== 'separate' || terms.monthly_agorot !== 60000 || terms.family_monthly_agorot !== 120000 || terms.initial_lesson_agorot !== 15000 || typeof terms.existing_sibling_name !== 'string' || !terms.existing_sibling_name.trim() || !/^\d{4}-\d{2}-10$/.test(terms.recurring_starts_on || ''))) throw Error('invalid_family_terms');
+          if (terms && terms.new_siblings) { var familyNote=document.querySelector('.payment-note'); if(familyNote) familyNote.textContent='שני אחים חדשים מצטרפים יחד: 150 ₪ לכל שיעור שנותר לכל ילד. לאחר השלמת הפרטים של שניהם יופיע קישור אחד לתשלום הראשון ולהקמת הוראת קבע. מהחודש הבא: 600 ₪ לילד — 1,200 ₪ למשפחה; המרכז יעדכן את הסכום ומועד החיוב ב־Grow.'; }
           if (terms && terms.monthly_agorot) {
             var price = document.querySelector('.payment-price');
             if (price) price.textContent = terms.family_enrollment ? '1,200 ₪ / לחודש לשני הילדים — מהחודש הבא' : (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
