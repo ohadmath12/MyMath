@@ -22,7 +22,7 @@
   var CONFIG = {
     contact: {
       address: 'הרי יהודה 54, גני תקווה',
-      phone: '052-454-9680',
+      phone: '052-835-9521',
       email: 'ohadmath12@gmail.com'
     }
   };
