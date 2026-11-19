@@ -12,6 +12,9 @@
   var trialToken = incomingTrialToken || sessionStorage.getItem('trial-conversion-token');
   if (trialToken) sessionStorage.setItem('trial-conversion-token', trialToken);
   if (incomingTrialToken) { leadToken = null; sessionStorage.removeItem('lead-conversion-token'); }
+  var familyEmbedded = window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
+  var familyChildToken = leadToken;
+  if (familyEmbedded && window.ResizeObserver) new ResizeObserver(function(){ window.parent.postMessage({type:'mythematix-family-height',height:document.documentElement.scrollHeight},location.origin); }).observe(document.body);
   if (window.EnrollmentPayment) window.EnrollmentPayment.init(leadToken ? 'lead' : 'trial', leadToken || trialToken);
   if (trialToken || leadToken) history.replaceState(null, '', location.pathname + location.search);
 
@@ -473,6 +476,7 @@
           resetForm();
           showSuccess(response.registrationId);
           if (window.EnrollmentPayment) window.EnrollmentPayment.completed();
+          if (familyEmbedded) window.parent.postMessage({type:'mythematix-family-child-saved',token:familyChildToken},location.origin);
         } else {
           resetTurnstile();
           showFormError('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');

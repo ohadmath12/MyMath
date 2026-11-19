@@ -10,7 +10,7 @@
     target.textContent = '';
     var family = terms.family_enrollment === true;
     var recurringInitial = terms.monthly_method === 'recurring' && terms.payment_flow === 'recurring_initial';
-    var title = document.createElement('h3'); title.textContent = family ? 'הרשמה משפחתית — הצטרפות אח או אחות' : 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
+    var title = document.createElement('h3'); title.textContent = terms.new_siblings ? 'תשלום משפחתי משותף לשני הילדים' : family ? 'הרשמה משפחתית — הצטרפות אח או אחות' : 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
     if (family) {
       var sibling = document.createElement('p'); sibling.textContent = 'אח או אחות שכבר במסגרת: ' + terms.existing_sibling_name + '. הפרטים והחתימה בטופס זה מיועדים לילד המצטרף בלבד; אין צורך לרשום מחדש את האח הקיים.'; target.appendChild(sibling);
     }
@@ -49,6 +49,9 @@
     var method = document.createElement('p');
     method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום הסכומים המפורטים לעיל והתשלום החודשי במזומן. אין צורך להזין אשראי או להקים הוראת קבע. השלמת הטופס אינה אישור קבלת תשלום.' : recurringInitial ? 'בהמשך תעברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום יתרת החודש המוצג כאן. לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
     target.appendChild(method);
+    if (paymentButton && terms.new_siblings) {
+      var familyLink=document.createElement('a');familyLink.href=terms.family_url;familyLink.target='_top';familyLink.className='btn btn-primary';familyLink.textContent='להמשך ההרשמה המשפחתית והתשלום המשותף';target.appendChild(familyLink);return;
+    }
     if (paymentButton && terms.initial_agorot > 0 && terms.monthly_method !== 'cash' && safeLink(terms.payment_url)) {
       var a = document.createElement('a'); a.href = terms.payment_url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'btn btn-primary'; a.textContent = (recurringInitial ? 'לתשלום הראשון ולהקמת הוראת קבע · ' : 'לתשלום מאובטח ב־Grow · ') + amount; target.appendChild(a);
       var note = document.createElement('p'); note.textContent = 'אם כבר שילמתם, אין לשלם שוב. פתיחת הקישור או השלמת ההרשמה אינן אישור שהתקבל תשלום.'; target.appendChild(note);
@@ -91,14 +94,16 @@
           }
           if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
           if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash'))) throw Error('invalid_unpaid_trial');
+          if (terms && terms.new_siblings && (terms.new_siblings !== true || terms.monthly_agorot !== 120000 || terms.payment_flow !== 'recurring_initial' || !/^https:\/\/ohadmath12\.github\.io\/MyMath\/family\.html#family=[a-f0-9]{64}$/.test(terms.family_url || ''))) throw Error('invalid_family_terms');
           ready = true;
-          if (window.FormPaymentStep) window.FormPaymentStep.configure(terms && terms.monthly_method !== 'cash' && terms.initial_agorot > 0 && safeLink(terms.payment_url));
+          if (window.FormPaymentStep) window.FormPaymentStep.configure(terms && !terms.new_siblings && terms.monthly_method !== 'cash' && terms.initial_agorot > 0 && safeLink(terms.payment_url));
           if (terms) render(box,false); else box.hidden=true;
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });
     },
     completed: function () {
       if (saved || !terms || !ready) return;
       saved = true; box.hidden = true;
+      if (terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1') return;
       var result = document.createElement('section'); result.className='enrollment-payment-terms'; render(result,true); document.getElementById('success-card').appendChild(result);
       if (window.FormPaymentStep) window.FormPaymentStep.show(result);
     }
