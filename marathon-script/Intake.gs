@@ -45,6 +45,7 @@ function doPost(e){
    try{if(a.invitation_token)p=mwBindInvitation_(p,a.invitation_token);result=mwIntake_(ss,p);}finally{lock.releaseLock();}
   }else throw Error('invalid_operation');
  }catch(error){console.error('Marathon intake: '+String(error.message));result={ok:false,code:['event_changed','study_mismatch','invalid_invitation','invitation_identity'].indexOf(error.message)>=0?error.message:'intake_failed'};}
+ if(result&&result.ok&&typeof mwCrmSyncSafely_==='function')mwCrmSyncSafely_();
  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 function mwIntake_(ss,p){
@@ -82,7 +83,7 @@ function mwProcess_(ss,log,lr,p){
   sh.getRange(r,3).clearDataValidations();sh.getRange(r,5).setNumberFormat('@');sh.getRange(r,1,1,24).setValues([values]);sh.getRange(r,23).setNote('מקור: טופס המרתונים. פרטי ההורה בלשונית '+MW_LOG+'.');SpreadsheetApp.flush();mwResult_(log,lr,'נקלט','',r,uid,ev[7]);
  }catch(error){mwResult_(log,lr,error.review?'נדרש בירור':'ממתין',error.review?error.message:'תקלה טכנית; ניסיון אוטומטי נוסף מתבצע כל 5 דקות','','',p.event);if(!error.review)throw error;}
 }
-function retryMarathonIntake(){var lock=LockService.getScriptLock();if(!lock.tryLock(20000))return;try{var ss=SpreadsheetApp.openById(MW_BOOK),log=ss.getSheetByName(MW_LOG);if(!log||log.getLastRow()<2)return;var rows=log.getRange(2,1,log.getLastRow()-1,19).getValues(),count=0;rows.forEach(function(r,i){if(r[13]==='ממתין'&&r[18]&&count++<30)mwProcess_(ss,log,i+2,JSON.parse(r[18]));});}finally{lock.releaseLock();}}
+function retryMarathonIntake(){var lock=LockService.getScriptLock();if(!lock.tryLock(20000))return;try{var ss=SpreadsheetApp.openById(MW_BOOK),log=ss.getSheetByName(MW_LOG);if(!log||log.getLastRow()<2)return;var rows=log.getRange(2,1,log.getLastRow()-1,19).getValues(),count=0;rows.forEach(function(r,i){if(r[13]==='ממתין'&&r[18]&&count++<30)mwProcess_(ss,log,i+2,JSON.parse(r[18]));});}finally{lock.releaseLock();if(typeof mwCrmSyncSafely_==='function')mwCrmSyncSafely_();}}
 
 // Keep original receipts intact; new fields live in their versioned source payload.
 function mwRequestNotes_(p){return [p.kind==='interest'?'בקשת השתתפות כללית':'',p.city?'עיר: '+p.city:'',p.examDate?'מועד מבחן: '+p.examDate:'',p.notes].filter(Boolean).join(' | ');}
@@ -103,6 +104,7 @@ function mwIntakeResponse_(ss,log,row,p){
  if(Number(person[11])>0)return{ok:true,paymentStatus:'recorded'};
  if(!p.checkout)return{ok:true,paymentStatus:'pending'};
  if(person[8]!==p.checkout.amount||person[20]!=='')return{ok:true,paymentStatus:'review'};
+ if(typeof mwCrmEnabled_==='function'&&mwCrmEnabled_()){var crm=mwCrmCheckout_(ss,p);if(crm!=='ready')return{ok:true,paymentStatus:crm};}
  if(p.checkout.method==='cash')return{ok:true,paymentStatus:'cash',amount:p.checkout.amount};
  return{ok:true,paymentStatus:'ready',payment:{amount:p.checkout.amount,url:mwGrowUrl_(p.checkout.url)}};
 }

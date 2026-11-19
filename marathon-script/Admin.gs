@@ -19,21 +19,21 @@ function mwAdminState_(ss){
  var sources=mwSources_(ss);
  var people=ss.getSheetByName('משתתפי מרתונים').getRange('A5:X1000').getValues().map(function(r,i){var receipt=mwReceipt_(r),source=sources[receipt],p=source?source.payload:{};return{receipt:receipt,kind:p.kind||'',grade:p.grade||String(r[6]).split(' / ')[0],units:p.level||String(r[6]).split(' / ').slice(1).join(' / '),examDate:p.examDate||'',city:p.city||'',received:source?source.received:'',row:i+5,id:r[19],campaign:r[23],group:r[18],name:r[3],phone:String(r[4]),school:r[5],level:r[6],status:r[17],attended:r[7]==='כן',paid:Number(r[11])||0};}).filter(function(r){return r.campaign||(r.kind==='interest'&&r.id);});
  people.forEach(function(person){var source=sources[person.receipt];person.checkoutAmount=source&&source.payload.checkout?source.payload.checkout.amount:null;person.paymentMethod=source&&source.payload.checkout?source.payload.checkout.method||'grow':'';});
- return{campaigns:campaigns,groups:groups,people:people,invitations:mwAdminInvitations_(),paymentSettings:mwPaymentSettings_(),schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
+ return{crmEnabled:mwCrmEnabled_(),campaigns:campaigns,groups:groups,people:people,invitations:mwAdminInvitations_(),paymentSettings:mwPaymentSettings_(),schools:MW_SCHOOLS,grades:MW_CLASSES,levels:MW_LEVELS,registrationUrl:'https://ohadmath12.github.io/MyMath/marathons/',sheetUrl:ss.getUrl()};
 }
-function mwAdminCreateCampaign(data){mwRequireOwner_();
+function mwAdminCreateCampaign(data){mwRequireOwner_();mwCrmLegacyWrite_();
  var name=mwText_(data.name,180),grade=mwText_(data.grade,20),school=mwText_(data.school,120),price=Number(data.price);
  if(!name||MW_CLASSES.indexOf(grade)<0||(school&&MW_SCHOOLS.indexOf(school)<0)||data.price===''||!isFinite(price)||price<0)throw Error('יש למלא שם, כיתה ומחיר תקינים');
  var lock=LockService.getScriptLock();lock.waitLock(20000);try{var ss=SpreadsheetApp.openById(MW_BOOK),sh=ss.getSheetByName(MW_CAMPAIGNS),rows=sh.getRange('A5:G1000').getValues(),index=rows.findIndex(function(r){return!r[0]&&!r[1];});if(index<0)throw Error('הטבלה מלאה');var id='MC-'+mwCommandId_(data.commandId);var existing=rows.find(function(r){return r[0]===id;});if(existing)return{id:id};sh.getRange(index+5,1,1,7).setValues([[id,mwSafe_(name),grade,school,price,'טיוטה','']]);return{id:id};}finally{lock.releaseLock();}
 }
-function mwAdminCampaignStatus(id,status){mwRequireOwner_();if(['טיוטה','הרשמה פתוחה','הרשמה סגורה'].indexOf(status)<0)throw Error('מצב לא תקין');var lock=LockService.getScriptLock();lock.waitLock(20000);try{var sh=SpreadsheetApp.openById(MW_BOOK).getSheetByName(MW_CAMPAIGNS),rows=sh.getRange('A5:G1000').getValues(),i=rows.findIndex(function(r){return r[0]===id;});if(i<0)throw Error('המרתון לא נמצא');sh.getRange(i+5,6).setValue(status);return{ok:true};}finally{lock.releaseLock();}}
-function mwAdminCreateGroup(data){mwRequireOwner_();
+function mwAdminCampaignStatus(id,status){mwRequireOwner_();mwCrmLegacyWrite_();if(['טיוטה','הרשמה פתוחה','הרשמה סגורה'].indexOf(status)<0)throw Error('מצב לא תקין');var lock=LockService.getScriptLock();lock.waitLock(20000);try{var sh=SpreadsheetApp.openById(MW_BOOK).getSheetByName(MW_CAMPAIGNS),rows=sh.getRange('A5:G1000').getValues(),i=rows.findIndex(function(r){return r[0]===id;});if(i<0)throw Error('המרתון לא נמצא');sh.getRange(i+5,6).setValue(status);return{ok:true};}finally{lock.releaseLock();}}
+function mwAdminCreateGroup(data){mwRequireOwner_();mwCrmLegacyWrite_();
  var name=mwText_(data.name,100);if(!name||!/^\d{4}-\d{2}-\d{2}$/.test(data.date))throw Error('יש למלא שם קבוצה ותאריך');
  var d=Utilities.parseDate(data.date,'Asia/Jerusalem','yyyy-MM-dd');if(Utilities.formatDate(d,'Asia/Jerusalem','yyyy-MM-dd')!==data.date||data.date<Utilities.formatDate(new Date(),'Asia/Jerusalem','yyyy-MM-dd'))throw Error('יש לבחור תאריך היום או בעתיד');
  var lock=LockService.getScriptLock();lock.waitLock(20000);try{var ss=SpreadsheetApp.openById(MW_BOOK),campaign=ss.getSheetByName(MW_CAMPAIGNS).getRange('A5:G1000').getValues().find(function(r){return r[0]===data.campaign;});if(!campaign)throw Error('המרתון לא נמצא');var sh=ss.getSheetByName('מרתונים'),rows=sh.getRange('A5:K1000').getValues(),i=rows.findIndex(function(r){return!r[1]&&!r[2]&&!r[7];});if(i<0)throw Error('טבלת הקבוצות מלאה');var r=i+5,id='m-'+mwCommandId_(data.commandId);if(rows.some(function(r){return r[7]===id;}))return{id:id};
  sh.getRange(r,1,1,11).setValues([[mwSafe_(campaign[1]+' — '+name+' — '+Utilities.formatDate(d,'Asia/Jerusalem','dd/MM/yyyy')),d,campaign[2],mwSafe_(name),campaign[4],'מתוכנן','',id,id+' | '+campaign[1]+' — '+name,data.campaign,6]]);return{id:id};}finally{lock.releaseLock();}
 }
-function mwAdminAssign(data){mwRequireOwner_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{return mwAssign_(SpreadsheetApp.openById(MW_BOOK),data);}finally{lock.releaseLock();}}
+function mwAdminAssign(data){mwRequireOwner_();mwCrmLegacyWrite_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{return mwAssign_(SpreadsheetApp.openById(MW_BOOK),data);}finally{lock.releaseLock();}}
 function mwAssign_(ss,data){
  var sh=ss.getSheetByName('משתתפי מרתונים'),rows=sh.getRange('A5:X1000').getValues(),i=Number(data.row)-5;if(!Number.isInteger(i)||i<0||i>=rows.length)throw Error('תלמיד לא נמצא');var p=rows[i];if(!p[23]||p[19]!==data.participantId)throw Error('הרשומה השתנתה; רעננו את הלוח');if(p[17]==='בוטל')throw Error('ההרשמה בוטלה');if(p[7]==='כן')throw Error('כבר תועדה נוכחות; שינוי שיוך מצריך בדיקה ידנית');
  var target=data.group||'',group=null;
@@ -42,12 +42,12 @@ function mwAssign_(ss,data){
  if(p[18]===target&&p[17]===(target?'נרשם':'ממתין לשיבוץ'))return{ok:true};
  var range=sh.getRange(i+5,1,1,24),formulas=range.getFormulas()[0],values=p.map(function(v,j){return formulas[j]||v;});values[1]=group?group[8]:'';values[17]=target?'נרשם':'ממתין לשיבוץ';values[18]=target;range.setValues([values]);SpreadsheetApp.flush();return{ok:true};
 }
-function mwAdminSetStatus(data){mwRequireOwner_();return mwAdminCampaignStatus(data.id,data.status);}
+function mwAdminSetStatus(data){mwRequireOwner_();mwCrmLegacyWrite_();return mwAdminCampaignStatus(data.id,data.status);}
 
 function mwCommandId_(id){if(typeof id!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id))throw Error('יש לרענן את המסך ולנסות שוב');return id;}
 
 // General requests acquire an internal price only when the owner selects a marathon.
-function mwAdminAssignCampaign(data){mwRequireOwner_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{return mwAssignCampaign_(SpreadsheetApp.openById(MW_BOOK),data);}finally{lock.releaseLock();}}
+function mwAdminAssignCampaign(data){mwRequireOwner_();mwCrmLegacyWrite_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{return mwAssignCampaign_(SpreadsheetApp.openById(MW_BOOK),data);}finally{lock.releaseLock();}}
 function mwAssignCampaign_(ss,data){
  var sh=ss.getSheetByName('משתתפי מרתונים'),rows=sh.getRange('A5:X1000').getValues(),i=Number(data.row)-5;
  if(!Number.isInteger(i)||i<0||i>=rows.length)throw Error('תלמיד לא נמצא');var p=rows[i],receipt=mwReceipt_(p),source=mwSources_(ss)[receipt];
@@ -97,3 +97,55 @@ function mwAdminCreateInvitation(data){mwRequireOwner_();var lock=LockService.ge
 function mwAdminRevokeInvitation(data){mwRequireOwner_();var id=mwCommandId_(data.id),lock=LockService.getScriptLock();lock.waitLock(20000);try{var props=PropertiesService.getScriptProperties(),raw=props.getProperty('MW_INV_'+id);if(!raw)throw Error('ההזמנה לא נמצאה');var p=JSON.parse(raw);p.revoked=true;props.setProperty('MW_INV_'+id,JSON.stringify(p));return{ok:true};}finally{lock.releaseLock();}}
 
 function mwAdminInvitations_(){var all=PropertiesService.getScriptProperties().getProperties();return Object.keys(all).filter(function(k){return k.indexOf('MW_INV_')===0&&k.indexOf('MW_INV_TOKEN_')!==0;}).map(function(k){var p=JSON.parse(all[k]);return{id:p.id,name:p.first+' '+p.last,amount:p.amount,method:p.method,url:p.link,revoked:!!p.revoked,expires:p.expires};}).sort(function(a,b){return b.expires-a.expires;});}
+
+// CRM cutover: immutable intake snapshots, retry queue, no operational writes back.
+function mwCrmEnabled_(){return PropertiesService.getScriptProperties().getProperty('MW_CRM_ENABLED')==='true';}
+function mwCrmLegacyWrite_(){if(mwCrmEnabled_())throw Error('השיבוץ עבר ל־CRM. יש לנהל את ההרשמות והמפגשים שם.');}
+function mwAdminConfigureCrm(data){
+ mwRequireOwner_();var key=String(data.publicKey||'').trim();
+ if(!/^(sb_publishable_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9_.-]+)$/.test(key)||key.length>1000)throw Error('מפתח ציבורי לא תקין');
+ var props=PropertiesService.getScriptProperties();
+ // Probe the authenticated import route with no personal data before enabling.
+ var probe=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/import_marathon_registration',{method:'post',contentType:'application/json',headers:{apikey:key,'x-marathon-key':props.getProperty('MARATHON_GATEWAY_SECRET')},payload:JSON.stringify({p:{source_key:'probe'}}),muteHttpExceptions:true});
+ if(probe.getResponseCode()!==400||String(probe.getContentText()).indexOf('invalid_source')<0)throw Error('בדיקת חיבור ה־CRM נכשלה; לא הופעל המעבר');
+ props.setProperty('MW_CRM_PUBLIC_KEY',key);props.setProperty('MW_CRM_ENABLED','true');
+ if(!ScriptApp.getProjectTriggers().some(function(t){return t.getHandlerFunction()==='retryMarathonIntake';}))ScriptApp.newTrigger('retryMarathonIntake').timeBased().everyMinutes(5).create();
+ mwCrmSyncSafely_();return{ok:true};
+}
+function mwCrmSnapshot_(r,row,sources){
+ var receipt=mwReceipt_(r),source=sources[receipt],p=source&&source.payload||{},name=String(r[3]||'').trim();
+ var day=r[0] instanceof Date?Utilities.formatDate(r[0],'Asia/Jerusalem','yyyy-MM-dd'):'',today=Utilities.formatDate(new Date(),'Asia/Jerusalem','yyyy-MM-dd');
+ var key=receipt?'receipt:'+receipt:'sheet:'+row+':'+String(r[19]||'none').replace(/[^A-Za-z0-9:_-]/g,'_');
+ return{source_key:key,student_first_name:p.first||name,student_last_name:p.last||'',parent_name:p.parent||'',parent_phone:String(p.phone||r[4]||''),school_name:String(p.school||r[5]||''),grade:String(p.grade||String(r[6]||'').split(' / ')[0]),study_level:String(p.level||String(r[6]||'').split(' / ').slice(1).join(' / ')),quoted_agorot:typeof r[8]==='number'?Math.round(r[8]*100):null,agreed_method:p.checkout&&p.checkout.method||'',received_agorot:typeof r[11]==='number'?Math.round(r[11]*100):0,payment_date:r[12] instanceof Date?Utilities.formatDate(r[12],'Asia/Jerusalem','yyyy-MM-dd'):String(r[12]||''),payment_method:String(r[13]||''),legacy_group:String(r[1]||''),legacy_date:day,status:r[17]==='בוטל'?'cancelled':day&&day<today?'historical':r[18]?'review':'pending',attendance:r[7]==='כן'?'present':'pending',notes:String(r[16]||'')};
+}
+function mwCrmQueue_(ss){
+ var q=ss.getSheetByName('סנכרון CRM מרתונים');
+ if(!q){q=ss.insertSheet('סנכרון CRM מרתונים');q.setRightToLeft(true);q.setFrozenRows(1);q.setHiddenGridlines(true);q.getRange(1,1,1,6).setValues([['מזהה מקור','נתוני קליטה מקוריים','מצב סנכרון','מזהה ב־CRM','עודכן בתאריך','פירוט בקרה']]);q.getRange('A1:F1').setBackground('#1e293a').setFontColor('#ffffff').setFontWeight('bold');q.hideColumns(2);}
+ var known={};if(q.getLastRow()>1)q.getRange(2,1,q.getLastRow()-1,1).getValues().forEach(function(x){known[x[0]]=true;});
+ var sources=mwSources_(ss),rows=ss.getSheetByName('משתתפי מרתונים').getRange('A5:X1000').getValues(),add=[];
+ rows.forEach(function(r,i){if(!r[3])return;var p=mwCrmSnapshot_(r,i+5,sources);if(!known[p.source_key]){add.push([p.source_key,JSON.stringify(p),'ממתין','','','']);known[p.source_key]=true;}});
+ if(add.length){var first=q.getLastRow()+1;if(first+add.length>q.getMaxRows())q.insertRowsAfter(q.getMaxRows(),Math.max(500,add.length));q.getRange(first,1,add.length,6).setValues(add);}return q;
+}
+function mwCrmSyncSafely_(){
+ if(!mwCrmEnabled_())return;var lock=LockService.getScriptLock();if(!lock.tryLock(1000))return;
+ try{var props=PropertiesService.getScriptProperties(),key=props.getProperty('MW_CRM_PUBLIC_KEY'),secret=props.getProperty('MARATHON_GATEWAY_SECRET');if(!key||!secret)return;
+ var q=mwCrmQueue_(SpreadsheetApp.openById(MW_BOOK)),rows=q.getLastRow()>1?q.getRange(2,1,q.getLastRow()-1,6).getValues():[],count=0;
+ for(var i=0;i<rows.length&&count<20;i++){var row=rows[i];if(row[2]==='נקלט')continue;count++;
+  try{var response=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/import_marathon_registration',{method:'post',contentType:'application/json',headers:{apikey:key,'x-marathon-key':secret},payload:JSON.stringify({p:JSON.parse(row[1])}),muteHttpExceptions:true});
+   if(response.getResponseCode()!==200)throw Error('HTTP '+response.getResponseCode());var result=JSON.parse(response.getContentText());if(!result.id)throw Error('invalid_response');q.getRange(i+2,3,1,4).setValues([['נקלט',result.id,new Date(),'']]);
+  }catch(e){q.getRange(i+2,3,1,4).setValues([['ניסיון חוזר','',new Date(),'הקליטה לא אושרה; ניסיון חוזר אוטומטי']]);break;}
+ }
+ }catch(e){console.error('Marathon CRM sync pending');}finally{lock.releaseLock();}
+}
+function mwCrmCheckout_(ss,p){
+ try{
+  var props=PropertiesService.getScriptProperties(),headers={apikey:props.getProperty('MW_CRM_PUBLIC_KEY'),'x-marathon-key':props.getProperty('MARATHON_GATEWAY_SECRET')},q=mwCrmQueue_(ss),rows=q.getRange(2,1,q.getLastRow()-1,6).getValues(),index=rows.findIndex(function(r){return r[0]==='receipt:'+p.id;});
+  if(index<0)return'pending';var item=rows[index];
+  if(item[2]!=='נקלט'){
+   var add=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/import_marathon_registration',{method:'post',contentType:'application/json',headers:headers,payload:JSON.stringify({p:JSON.parse(item[1])}),muteHttpExceptions:true});
+   if(add.getResponseCode()!==200)return'pending';var result=JSON.parse(add.getContentText());if(!result.id)return'pending';q.getRange(index+2,3,1,4).setValues([['נקלט',result.id,new Date(),'']]);
+  }
+  var response=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/marathon_checkout_state',{method:'post',contentType:'application/json',headers:headers,payload:JSON.stringify({source:'receipt:'+p.id}),muteHttpExceptions:true});
+  if(response.getResponseCode()!==200)return'pending';var state=JSON.parse(response.getContentText());if(!state.known)return'pending';if(state.blocked)return'review';if(state.paid)return'recorded';return'ready';
+ }catch(e){return'pending';}
+}

@@ -1,0 +1,26 @@
+const assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const props={MW_CRM_ENABLED:'true',MW_CRM_PUBLIC_KEY:'sb_publishable_test',MARATHON_GATEWAY_SECRET:'synthetic-test-key'};
+let fetched=0,fail=false,owner='ohadmath12@gmail.com',locked=false;
+const stored=new Map();const ctx={console,PropertiesService:{getScriptProperties:()=>({getProperty:k=>props[k],setProperty:(k,v)=>props[k]=v})},Session:{getActiveUser:()=>({getEmail:()=>owner})},LockService:{getScriptLock:()=>({tryLock:()=>!locked,releaseLock(){}})},Utilities:{formatDate:d=>d.toISOString().slice(0,10)},UrlFetchApp:{fetch:(url,o)=>{fetched++;if(fail)throw Error('network');const p=JSON.parse(o.payload).p;assert.equal(o.headers['x-marathon-key'],props.MARATHON_GATEWAY_SECRET);assert.ok(url.startsWith('https://kstdmsfalsqpomaoddoq.supabase.co/'));const prev=stored.get(p.source_key);if(prev)assert.deepEqual(prev,p);stored.set(p.source_key,p);return{getResponseCode:()=>200,getContentText:()=>JSON.stringify({id:'00000000-0000-4000-8000-000000000001'})}}}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('marathon-script/Intake.gs','utf8')+'\n'+fs.readFileSync('marathon-script/Admin.gs','utf8'),ctx);
+let rows=[['receipt:00000000-0000-4000-8000-000000000001',JSON.stringify({source_key:'receipt:00000000-0000-4000-8000-000000000001'}),'ממתין','','','']];
+const queue={getLastRow:()=>rows.length+1,getRange:(row,col,n,w)=>({getValues:()=>rows.map(r=>r.slice()),setValues:v=>{for(let j=0;j<w;j++)rows[row-2][col-1+j]=v[0][j]}})};
+ctx.SpreadsheetApp={openById:()=>({})};ctx.mwCrmQueue_=()=>queue;
+fail=true;ctx.mwCrmSyncSafely_();assert.equal(rows[0][2],'ניסיון חוזר');fail=false;ctx.mwCrmSyncSafely_();assert.equal(rows[0][2],'נקלט');assert.equal(stored.size,1);const before=fetched;ctx.mwCrmSyncSafely_();assert.equal(fetched,before);
+rows[0][2]='ממתין';ctx.mwCrmSyncSafely_();assert.equal(stored.size,1);
+assert.throws(()=>ctx.mwCrmLegacyWrite_(),/CRM/);props.MW_CRM_ENABLED='false';ctx.mwCrmLegacyWrite_();const calls=fetched;ctx.mwCrmSyncSafely_();assert.equal(fetched,calls);
+owner='other@example.invalid';assert.throws(()=>ctx.mwAdminConfigureCrm({publicKey:'sb_publishable_test'}));
+console.log('PASS: durable queue retries, stable source key, no reimport of acknowledged rows, disabled cutover, old write lock and owner-only setup');
+
+props.MW_CRM_ENABLED='true';
+const receiptId='00000000-0000-4000-8000-000000000001';
+let checkout={known:true,blocked:false,paid:false};
+const originalFetch=ctx.UrlFetchApp.fetch;
+ctx.UrlFetchApp.fetch=(url,o)=>{if(url.endsWith('/marathon_checkout_state')){if(fail)throw Error('network');assert.equal(JSON.parse(o.payload).source,'receipt:'+receiptId);return{getResponseCode:()=>200,getContentText:()=>JSON.stringify(checkout)}}return originalFetch(url,o)};
+assert.equal(ctx.mwCrmCheckout_({}, {id:receiptId}),'ready');
+checkout.paid=true;assert.equal(ctx.mwCrmCheckout_({}, {id:receiptId}),'recorded');
+checkout.blocked=true;assert.equal(ctx.mwCrmCheckout_({}, {id:receiptId}),'review');
+checkout.known=false;assert.equal(ctx.mwCrmCheckout_({}, {id:receiptId}),'pending');
+fail=true;assert.equal(ctx.mwCrmCheckout_({}, {id:receiptId}),'pending');
+assert.equal(ctx.mwCrmCheckout_({}, {id:'missing'}),'pending');
+console.log('PASS: CRM checkout permits unpaid, prevents repeated paid checkout, holds blocked/missing/unreachable records');

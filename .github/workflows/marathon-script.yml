@@ -50,6 +50,7 @@ jobs:
       - name: Test marathon changes
         run: |
           node tests/marathon.test.cjs
+          node tests/marathon-crm-sync.test.cjs
           node --test tests/marathon-form.test.mjs tests/marathon-worker.test.mjs
       - name: Publish to both existing marathon URLs
         if: env.MARATHON_MODE == 'publish'

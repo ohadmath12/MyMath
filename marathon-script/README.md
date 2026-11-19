@@ -38,3 +38,8 @@ See the workspace `work/marathon-custom-status.json` for actual publication stat
 
 ## Deployment guard
 `.github/workflows/marathon-script.yml` uses the existing production publishing credentials and an isolated clasp directory explicitly targeting the marathon project. It pulls native source first and refuses writes if any maintained native file differs from the verified baseline or the intended new source. It retains the native manifest and tracker and updates the two existing deployment IDs, without changing access or URLs. `MARATHON_MODE: inspect` is read-only; `publish` enables deployment. Do not publish the public generic form before both the Apps Script and Worker allowlist are ready.
+
+
+### CRM cutover — 2026-11-19
+After the CRM SQL migration, owner setup enables `MW_CRM_ENABLED`. Immutable intake snapshots are queued in the workbook and retried every five minutes, with stable source keys. CRM becomes the operational source for sessions, assignment, attendance and payment association. Historical received amounts are preserved as legacy values, without duplicating CRM income. Checkout checks authoritative CRM payment state before returning a payment link; unavailable checks hold checkout. The private manager retains personal Grow/cash links and public payment settings; old assignment writes are disabled after cutover.
+Validation: `node tests/marathon-crm-sync.test.cjs`, existing marathon and worker/form suites, and CRM PostgreSQL integration tests.
