@@ -680,3 +680,6 @@ footer {
   min-height: 65px;
   width: 100%;
 }
+
+/* Payment approval is required before exposing registration fields. */
+form[hidden] { display: none !important; }

@@ -216,6 +216,7 @@ function saveRegistration(payload) {
     }
 
     if (payload.trial_token && payload.lead_token) throw new Error('Conflicting conversion tokens');
+    if (!payload.trial_token && !payload.lead_token) throw new Error('Personal payment-approved invitation required');
     var leadReceipt = payload.lead_token ? reserveLeadRegistration_(payload, normalized) : '';
     var conversionReceipt = payload.trial_token ? reserveTrialConversion_(payload, normalized) : '';
     registrationId = Utilities.getUuid();
