@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var terms = null, ready = true, box, saved = false;
+  var terms = null, ready = true, box, saved = false, verified = false;
   var edited = new Set();
   function message(text) { if (box) { box.textContent = text; box.hidden = false; } }
   function safeLink(value) {
@@ -8,6 +8,7 @@
   }
   function render(target, paymentButton) {
     target.textContent = '';
+    if (paymentButton && verified) { var confirmation=document.createElement('p'); confirmation.textContent='קבלת התשלום אושרה על ידי המרכז. אין צורך לשלם שוב.'; target.appendChild(confirmation); return; }
     var family = terms.family_enrollment === true;
     var recurringInitial = terms.monthly_method === 'recurring' && terms.payment_flow === 'recurring_initial';
     var title = document.createElement('h3'); title.textContent = terms.new_siblings ? 'תשלום משפחתי משותף לשני הילדים' : family ? 'הרשמה משפחתית — הצטרפות אח או אחות' : 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
@@ -74,7 +75,7 @@
         .then(function (r) { if (!r.ok) throw Error('terms_failed'); return r.json(); })
         .then(function (r) {
           if (!r.ok) throw Error('invalid_link');
-          terms = r.terms;
+          terms = r.terms; verified = r.payment_verified === true;
           if (terms && (!Number.isInteger(terms.initial_agorot) || terms.initial_agorot<0 || !/^\d{4}-\d{2}-01$/.test(terms.service_month) || ['cash','recurring'].indexOf(terms.monthly_method)<0 || (terms.monthly_method==='recurring'&&terms.initial_agorot>0&&!safeLink(terms.payment_url)))) throw Error('invalid_terms');
           if (kind === 'trial' && r.prefill) {
             ['parent_name','parent_phone','student_first_name','student_last_name','class_name','school_name'].forEach(function(key){
@@ -99,6 +100,7 @@
           ready = true;
           if (window.FormPaymentStep) window.FormPaymentStep.configure(terms && !terms.new_siblings && terms.monthly_method !== 'cash' && terms.initial_agorot > 0 && safeLink(terms.payment_url));
           if (terms) render(box,false); else box.hidden=true;
+          if (r.registration_saved === true) document.dispatchEvent(new CustomEvent('registration-payment-resume',{detail:{registrationId:r.registration_id}}));
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });
     },
     completed: function () {

@@ -410,6 +410,11 @@
     successId.textContent = 'מספר הרשמה: ' + registrationId;
   }
 
+  document.addEventListener('registration-payment-resume', function(evt) {
+    showSuccess(evt.detail.registrationId);
+    if (window.EnrollmentPayment) window.EnrollmentPayment.completed();
+  });
+
   form.addEventListener('submit', function (evt) {
     evt.preventDefault();
 
