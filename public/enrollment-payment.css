@@ -1,7 +1,7 @@
 .enrollment-payment-terms{max-width:760px;margin:20px auto;padding:22px;border:1px solid #b9cbdc;border-radius:18px;background:#f2f7fb;color:#20324c;direction:rtl;line-height:1.7}.enrollment-payment-terms[hidden]{display:none}.enrollment-payment-terms h3{margin:0 0 10px;font-size:1.15rem}.enrollment-payment-terms p{margin:10px 0}.enrollment-payment-terms a{display:inline-block;padding:12px 20px;background:#233f65;color:#fff;border-radius:12px;text-decoration:none}
 
 /* Shared primary checkout action, for individual and family enrollment. */
-#enrollment-checkout a[target="_blank"], #family-pay {
+:is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"], #family-pay {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -23,7 +23,7 @@
   box-shadow: 0 8px 20px -8px #17478a66, inset 0 1px 0 #ffffff30;
   transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
 }
-#enrollment-checkout a[target="_blank"]::before, #family-pay::before {
+:is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"]::before, #family-pay::before {
   content: "";
   flex: 0 0 28px;
   width: 28px;
@@ -34,21 +34,21 @@
   background: linear-gradient(transparent 5px, currentColor 5px, currentColor 8px, transparent 8px);
   opacity: .95;
 }
-#enrollment-checkout a[target="_blank"]:hover, #family-pay:hover {
+:is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"]:hover, #family-pay:hover {
   background: linear-gradient(120deg, #123574, #2058b3);
   box-shadow: 0 12px 24px -8px #17478a80;
   transform: translateY(-2px);
 }
-#enrollment-checkout a[target="_blank"]:focus-visible, #family-pay:focus-visible {
+:is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"]:focus-visible, #family-pay:focus-visible {
   outline: 3px solid #c27b00;
   outline-offset: 4px;
 }
-#enrollment-checkout a[target="_blank"]:active, #family-pay:active { transform: translateY(0); }
+:is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"]:active, #family-pay:active { transform: translateY(0); }
 @media(max-width:600px) {
-  #enrollment-checkout a[target="_blank"], #family-pay { width: 100%; padding: 18px; gap: 12px; font-size: 1rem; }
+  :is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"], #family-pay { width: 100%; padding: 18px; gap: 12px; font-size: 1rem; }
 }
 @media(prefers-reduced-motion:reduce) {
-  #enrollment-checkout a[target="_blank"], #family-pay { transition: none; transform: none; }
+  :is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"], #family-pay { transition: none; transform: none; }
 }
 
-#enrollment-checkout a[target="_blank"][hidden], #family-pay[hidden] { display: none; }
+:is(#enrollment-checkout, .enrollment-payment-terms) a[target="_blank"][hidden], #family-pay[hidden] { display: none; }
