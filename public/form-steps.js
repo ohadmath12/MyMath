@@ -7,7 +7,9 @@
   const marathon = form.id === 'marathon-form';
   const trial = form.id === 'trial-form' || inquiry || marathon;
   const pages = [];
+  const familyChild = !trial && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
   const titles = inquiry ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : trial ? ['פרטי הורה', 'פרטי תלמיד', 'אישור ושליחה'] : ['על התוכנית', 'פרטי הורה', 'פרטי תלמיד', 'תקנון וחתימה'];
+  if(!trial&&!familyChild) titles.push('תשלום והשלמת הרשמה');
   const add = nodes => {
     const section = document.createElement('section');
     section.className = 'wizard-page';
@@ -29,7 +31,8 @@
     add([document.getElementById('program'), document.getElementById('payment'), document.getElementById('contact')]);
     pages[0].classList.add('program-step');
     add([groups[2]]); add([groups[0], groups[1]]);
-    add([document.getElementById('terms'), groups[3], form.querySelector('.submit-row')]);
+    add([document.getElementById('terms'), groups[3], ...(familyChild?[form.querySelector('.submit-row')]:[])]);
+    if(!familyChild) add([document.getElementById('enrollment-checkout'), form.querySelector('.submit-row')].filter(Boolean));
     const main = document.querySelector('main');
     main.prepend(document.getElementById('registration-section'));
 

@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  var terms = null, ready = true, box, saved = false, verified = false;
+  var terms = null, ready = true, box, saved = false, verified = false, resuming = false;
   var edited = new Set();
   function message(text) { if (box) { box.textContent = text; box.hidden = false; } }
   function safeLink(value) {
@@ -51,7 +51,7 @@
     method.textContent = terms.monthly_method === 'cash' ? 'סוכם על תשלום הסכומים המפורטים לעיל והתשלום החודשי במזומן. אין צורך להזין אשראי או להקים הוראת קבע. השלמת הטופס אינה אישור קבלת תשלום.' : recurringInitial ? 'עברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום התשלום המוצג כאן. לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל.' : 'הוראת הקבע לחודשים הבאים תוסדר בנפרד. הקישור כאן מיועד לתשלום חד־פעמי ליתרת החודש בלבד.';
     target.appendChild(method);
     if (paymentButton && terms.new_siblings) {
-      var familyLink=document.createElement('a');familyLink.href=terms.family_url;familyLink.target='_top';familyLink.className='btn btn-primary';familyLink.textContent='לתשלום המשותף ופתיחת ההרשמה המשפחתית';target.appendChild(familyLink);return;
+      var familyLink=document.createElement('a');familyLink.href=terms.family_url;familyLink.target='_top';familyLink.className='btn btn-primary';familyLink.textContent='להמשך ההרשמה המשפחתית והתשלום המשותף';target.appendChild(familyLink);return;
     }
     if (paymentButton && terms.initial_agorot > 0 && terms.monthly_method !== 'cash' && safeLink(terms.payment_url)) {
       var a = document.createElement('a'); a.href = terms.payment_url; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.className = 'btn btn-primary'; a.textContent = (recurringInitial ? 'לתשלום הראשון ולהקמת הוראת קבע · ' : 'לתשלום מאובטח ב־Grow · ') + amount; target.appendChild(a);
@@ -60,17 +60,17 @@
   }
   window.EnrollmentPayment = {
     init: function (kind, token) {
-      if (!token) { var unavailable=document.querySelector('form'); if(unavailable){unavailable.hidden=true;unavailable.insertAdjacentHTML('beforebegin','<p>להרשמה לתוכנית נדרש קישור אישי מהמרכז. התשלום ואימותו קודמים למילוי הפרטים.</p>');} return; }
+      if (!token) { var unavailable=document.querySelector('form'); if(unavailable){unavailable.hidden=true;unavailable.insertAdjacentHTML('beforebegin','<p>להרשמה לתוכנית נדרש קישור אישי מהמרכז. התשלום מופיע בשלב האחרון של ההרשמה.</p>');} return; }
       ready = false;
       var form = document.querySelector('form');
       form.hidden = true; form.inert = true;
       form.addEventListener('input', function(e){ edited.add(e.target.id); });
       form.addEventListener('change', function(e){ edited.add(e.target.id); });
-      box = document.createElement('section'); box.className = 'enrollment-payment-terms'; box.setAttribute('aria-live','polite');
+      box = document.createElement('section'); box.className = 'enrollment-payment-terms'; box.id='enrollment-checkout'; box.setAttribute('aria-live','polite');
       // Outside the step containers so the agreed terms remain visible before submission.
       form.parentNode.insertBefore(box, form);
       message('טוענים את תנאי התשלום האישיים…');
-      form.addEventListener('submit', function (e) { if (!ready || !verified) { e.preventDefault(); e.stopImmediatePropagation(); message('ההרשמה נעולה עד שהמרכז יאמת את קבלת התשלום.'); } }, true);
+      form.addEventListener('submit', function (e) { if (!ready) { e.preventDefault(); e.stopImmediatePropagation(); message('תנאי התשלום טרם נטענו. רעננו לפני השלמת ההרשמה.'); } }, true);
       var c = window.ENROLLMENT_PAYMENT_CONFIG;
       fetch(c.url + '/rest/v1/rpc/registration_payment_terms', {method:'POST',headers:{'Content-Type':'application/json',apikey:c.key},body:JSON.stringify({kind:kind,token:token})})
         .then(function (r) { if (!r.ok) throw Error('terms_failed'); return r.json(); })
@@ -90,7 +90,7 @@
             });
           }
           if (terms && terms.family_enrollment && (terms.family_enrollment !== true || terms.monthly_method !== 'recurring' || terms.payment_flow !== 'separate' || terms.monthly_agorot !== 60000 || terms.family_monthly_agorot !== 120000 || terms.initial_lesson_agorot !== 15000 || typeof terms.existing_sibling_name !== 'string' || !terms.existing_sibling_name.trim() || !/^\d{4}-\d{2}-10$/.test(terms.recurring_starts_on || ''))) throw Error('invalid_family_terms');
-          if (terms && terms.new_siblings) { var familyNote=document.querySelector('.payment-note'); if(familyNote) familyNote.textContent='שני אחים חדשים מצטרפים יחד: 150 ₪ לכל שיעור שנותר לכל ילד. התשלום ואימותו קודמים להשלמת הפרטים של שני הילדים. מהחודש הבא: 600 ₪ לילד — 1,200 ₪ למשפחה; המרכז יעדכן את הסכום ומועד החיוב ב־Grow.'; }
+          if (terms && terms.new_siblings) { var familyNote=document.querySelector('.payment-note'); if(familyNote) familyNote.textContent='שני אחים חדשים מצטרפים יחד: 150 ₪ לכל שיעור שנותר לכל ילד. לאחר הפרטים והחתימות של שני הילדים, יוצג תשלום משותף אחד בשלב האחרון. מהחודש הבא: 600 ₪ לילד — 1,200 ₪ למשפחה; המרכז יעדכן את הסכום ומועד החיוב ב־Grow.'; }
           if (terms && terms.monthly_agorot) {
             var price = document.querySelector('.payment-price');
             if (price) price.textContent = terms.family_enrollment ? '1,200 ₪ / לחודש לשני הילדים — מהחודש הבא' : (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
@@ -101,12 +101,13 @@
           ready = true;
           if (window.FormPaymentStep) window.FormPaymentStep.configure(false);
           if (!terms) throw Error('missing_terms');
-          render(box,true);
-          if (verified && r.registration_saved !== true) { form.hidden=false;form.inert=false; }
-          if (!verified) {
-            var wait=document.createElement('p');wait.textContent='לאחר התשלום, המרכז יאמת את קבלתו. רק לאחר האימות ייפתחו כאן פרטי ההרשמה והחתימה. אם כבר שילמתם, אין לשלם שוב.';box.appendChild(wait);
-            var refresh=document.createElement('button');refresh.type='button';refresh.className='btn btn-primary';refresh.textContent='בדיקת אישור התשלום ופתיחת הטופס';refresh.addEventListener('click',function(){location.reload();});box.appendChild(refresh);
+          resuming = r.registration_saved === true;
+          var embedded = terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
+          if (embedded) { box.hidden=true; } else {
+            render(box,true);
+            var finishNote=document.createElement('p');finishNote.textContent=verified?'התשלום אושר. אפשר ללחוץ על השלמת הרשמה ללא תשלום נוסף.':terms.monthly_method==='cash'?'לאחר הסדרת התשלום במזומן, לחצו על השלמת הרשמה.':'השלימו את התשלום ב־Grow, חזרו לעמוד הזה ולחצו על השלמת הרשמה. אם כבר שילמתם, אין לשלם שוב.';box.appendChild(finishNote);
           }
+          if (!resuming) { form.hidden=false;form.inert=false; }
           if (r.registration_saved === true) document.dispatchEvent(new CustomEvent('registration-payment-resume',{detail:{registrationId:r.registration_id}}));
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });
     },
@@ -114,7 +115,7 @@
       if (saved || !terms || !ready) return;
       saved = true; box.hidden = true;
       if (terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1') return;
-      var result = document.createElement('section'); result.className='enrollment-payment-terms'; render(result,true); document.getElementById('success-card').appendChild(result);
+      var result = document.createElement('section'); result.className='enrollment-payment-terms'; if(resuming) render(result,true); else { var note=document.createElement('p');note.textContent='ההרשמה נשלחה. המרכז יבדוק את קבלת התשלום וישלים את הטיפול.';result.appendChild(note); } document.getElementById('success-card').appendChild(result);
       if (window.FormPaymentStep) window.FormPaymentStep.show(result);
     }
   };

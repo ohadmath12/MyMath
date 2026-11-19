@@ -167,6 +167,7 @@
   var formCard = document.getElementById('form-card');
   var submitBtn = document.getElementById('submit-btn');
   var submitBtnLabel = document.getElementById('submit-btn-label');
+  submitBtnLabel.textContent=familyEmbedded?'שמירת פרטי הילד והמשך':'השלמת הרשמה';
   var formError = document.getElementById('form-error');
   var successCard = document.getElementById('success-card');
   var successId = document.getElementById('success-id');
@@ -394,7 +395,7 @@
   function setLoadingState(loading) {
     isSubmitting = loading;
     submitBtn.disabled = loading;
-    submitBtnLabel.textContent = loading ? 'שומר את ההרשמה…' : 'שליחת הרשמה';
+    submitBtnLabel.textContent = loading ? 'שומר את ההרשמה…' : familyEmbedded ? 'שמירת פרטי הילד והמשך' : 'השלמת הרשמה';
   }
 
   function resetForm() {
