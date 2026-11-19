@@ -2,6 +2,7 @@
   'use strict';
   var terms = null, ready = true, box, saved = false, verified = false, resuming = false;
   var edited = new Set();
+  var confirmation=null,checkControls=[];
   function message(text) { if (box) { box.textContent = text; box.hidden = false; } }
   function safeLink(value) {
     try { var u = new URL(value); return u.protocol === 'https:' && !u.username && !u.password && /(^|\.)(grow\.link|meshulam\.co\.il|grow\.business)$/.test(u.hostname); } catch (e) { return false; }
@@ -105,7 +106,24 @@
           var embedded = terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
           if (embedded) { box.hidden=true; } else {
             render(box,true);
-            var finishNote=document.createElement('p');finishNote.textContent=verified?'התשלום אושר. אפשר ללחוץ על השלמת הרשמה ללא תשלום נוסף.':terms.monthly_method==='cash'?'לאחר הסדרת התשלום במזומן, לחצו על השלמת הרשמה.':'השלימו את התשלום ב־Grow, חזרו לעמוד הזה ולחצו על השלמת הרשמה. אם כבר שילמתם, אין לשלם שוב.';box.appendChild(finishNote);
+            var finishNote=document.createElement('p');finishNote.textContent=verified?'התשלום אושר על ידי המרכז. אין לשלם שוב; בדיקת Grow נדרשת להשלמת ההרשמה.':terms.monthly_method==='cash'?'לאחר הסדרת התשלום במזומן, לחצו על השלמת הרשמה.':'השלימו את התשלום ב־Grow, חזרו לעמוד הזה ולחצו על השלמת הרשמה. אם כבר שילמתם, אין לשלם שוב.';box.appendChild(finishNote);
+          }
+          if (!embedded) {
+            var paymentStatus=document.createElement('p'); paymentStatus.setAttribute('role','status');box.appendChild(paymentStatus);
+            var checkButton=document.createElement('button');checkButton.type='button';checkButton.className='btn btn-primary';checkButton.textContent='בדיקת התשלום';box.appendChild(checkButton);checkControls=[paymentStatus,checkButton];
+            var submitButton=document.getElementById('submit-btn');
+            confirmation=window.GrowConfirmation.create(kind,token,function(state,label){
+              paymentStatus.textContent=label;checkButton.disabled=state.state==='checking';
+              checkButton.hidden=state.can_complete===true;
+              if(submitButton&&!resuming)submitButton.disabled=state.can_complete!==true;
+              if(state.paid)box.querySelectorAll('a[target="_blank"]').forEach(function(a){a.hidden=true;});
+            });
+            checkButton.addEventListener('click',function(){confirmation.check(true);});
+            var openedPayment=false;box.querySelectorAll('a[target="_blank"]').forEach(function(a){a.addEventListener('click',function(){openedPayment=true;});});
+            window.addEventListener('focus',function(){if(openedPayment){openedPayment=false;confirmation.check(true);}});
+            form.addEventListener('submit',function(event){if(confirmation.getState().can_complete!==true){event.preventDefault();event.stopImmediatePropagation();confirmation.check(true);}},true);
+            if(submitButton&&!resuming)submitButton.disabled=true;
+            confirmation.check(false);
           }
           if (!resuming) { form.hidden=false;form.inert=false; }
           if (r.registration_saved === true) document.dispatchEvent(new CustomEvent('registration-payment-resume',{detail:{registrationId:r.registration_id}}));
@@ -115,7 +133,7 @@
       if (saved || !terms || !ready) return;
       saved = true; box.hidden = true;
       if (terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1') return;
-      var result = document.createElement('section'); result.className='enrollment-payment-terms'; if(resuming) render(result,true); else { var note=document.createElement('p');note.textContent='ההרשמה נשלחה. המרכז יבדוק את קבלת התשלום וישלים את הטיפול.';result.appendChild(note); } document.getElementById('success-card').appendChild(result);
+      var result = document.createElement('section'); result.className='enrollment-payment-terms'; if(resuming) {render(result,true);checkControls.forEach(function(n){result.appendChild(n);});box=result;} else { var note=document.createElement('p');note.textContent='ההרשמה נשלחה. המרכז יבדוק את קבלת התשלום וישלים את הטיפול.';result.appendChild(note); } document.getElementById('success-card').appendChild(result);
       if (window.FormPaymentStep) window.FormPaymentStep.show(result);
     }
   };

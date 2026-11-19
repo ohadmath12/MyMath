@@ -14,6 +14,7 @@
   if (incomingTrialToken) { leadToken = null; sessionStorage.removeItem('lead-conversion-token'); }
   var familyEmbedded = window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
   var familyChildToken = leadToken;
+  var familyFinalizeRequested=false, familyAwaitingSecurity=false;
   if (familyEmbedded && window.ResizeObserver) new ResizeObserver(function(){ window.parent.postMessage({type:'mythematix-family-height',height:Math.ceil(document.body.getBoundingClientRect().height)+2},location.origin); }).observe(document.body);
   if (window.EnrollmentPayment) window.EnrollmentPayment.init(leadToken ? 'lead' : 'trial', leadToken || trialToken);
   if (trialToken || leadToken) history.replaceState(null, '', location.pathname + location.search);
@@ -167,7 +168,7 @@
   var formCard = document.getElementById('form-card');
   var submitBtn = document.getElementById('submit-btn');
   var submitBtnLabel = document.getElementById('submit-btn-label');
-  submitBtnLabel.textContent=familyEmbedded?'שמירת פרטי הילד והמשך':'השלמת הרשמה';
+  submitBtnLabel.textContent=familyEmbedded?'להמשך ההרשמה המשפחתית':'השלמת הרשמה';
   var formError = document.getElementById('form-error');
   var successCard = document.getElementById('success-card');
   var successId = document.getElementById('success-id');
@@ -235,6 +236,7 @@
         if (prefillState === 'pending') { loadLeadPrefill(token); return; }
         turnstileToken = token;
         clearFieldError('turnstile');
+        if(familyAwaitingSecurity){familyAwaitingSecurity=false;form.requestSubmit();}
       },
       'expired-callback': function () {
         turnstileToken = '';
@@ -395,7 +397,7 @@
   function setLoadingState(loading) {
     isSubmitting = loading;
     submitBtn.disabled = loading;
-    submitBtnLabel.textContent = loading ? 'שומר את ההרשמה…' : familyEmbedded ? 'שמירת פרטי הילד והמשך' : 'השלמת הרשמה';
+    submitBtnLabel.textContent = loading ? 'שומר את ההרשמה…' : familyEmbedded ? 'להמשך ההרשמה המשפחתית' : 'השלמת הרשמה';
   }
 
   function resetForm() {
@@ -416,6 +418,11 @@
     if (window.EnrollmentPayment) window.EnrollmentPayment.completed();
   });
 
+  if(familyEmbedded)window.addEventListener('message',function(event){
+    if(event.origin!==location.origin||event.source!==window.parent||!event.data||event.data.type!=='mythematix-family-finalize'||event.data.token!==familyChildToken)return;
+    familyFinalizeRequested=true;familyAwaitingSecurity=true;resetTurnstile();
+  });
+
   form.addEventListener('submit', function (evt) {
     evt.preventDefault();
 
@@ -431,6 +438,11 @@
         document.dispatchEvent(new CustomEvent('reveal-form-field', {detail:firstInvalid}));
         firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+      return;
+    }
+
+    if(familyEmbedded&&!familyFinalizeRequested){
+      window.parent.postMessage({type:'mythematix-family-child-draft',token:familyChildToken},location.origin);
       return;
     }
 
@@ -485,13 +497,15 @@
           if (familyEmbedded) window.parent.postMessage({type:'mythematix-family-child-saved',token:familyChildToken},location.origin);
         } else {
           resetTurnstile();
-          showFormError('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');
+          showFormError('לא הצלחנו לשמור את ההרשמה. ודאו שהתשלום אושר ונסו שוב; אין לשלם שוב.');
+          if(familyEmbedded)window.parent.postMessage({type:'mythematix-family-child-error',token:familyChildToken},location.origin);
         }
       })
       .catch(function () {
         setLoadingState(false);
         resetTurnstile();
-        showFormError('לא הצלחנו לשמור את ההרשמה. נסו שוב בעוד מספר רגעים.');
+        showFormError('לא הצלחנו לשמור את ההרשמה. ודאו שהתשלום אושר ונסו שוב; אין לשלם שוב.');
+          if(familyEmbedded)window.parent.postMessage({type:'mythematix-family-child-error',token:familyChildToken},location.origin);
       });
   });
 })();
