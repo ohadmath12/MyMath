@@ -14,7 +14,7 @@
   if (incomingTrialToken) { leadToken = null; sessionStorage.removeItem('lead-conversion-token'); }
   var familyEmbedded = window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
   var familyChildToken = leadToken;
-  if (familyEmbedded && window.ResizeObserver) new ResizeObserver(function(){ window.parent.postMessage({type:'mythematix-family-height',height:document.documentElement.scrollHeight},location.origin); }).observe(document.body);
+  if (familyEmbedded && window.ResizeObserver) new ResizeObserver(function(){ window.parent.postMessage({type:'mythematix-family-height',height:Math.ceil(document.body.getBoundingClientRect().height)+2},location.origin); }).observe(document.body);
   if (window.EnrollmentPayment) window.EnrollmentPayment.init(leadToken ? 'lead' : 'trial', leadToken || trialToken);
   if (trialToken || leadToken) history.replaceState(null, '', location.pathname + location.search);
 
