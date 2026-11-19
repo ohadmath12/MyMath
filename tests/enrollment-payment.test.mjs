@@ -47,3 +47,12 @@ for(const extra of [{unpaid_trial_agorot:-1,monthly_method:'cash'},{unpaid_trial
  a=await scenario({ok:true,terms:{...terms,...extra}});let blocked=false;a.form.listener({preventDefault(){blocked=true},stopImmediatePropagation(){}});assert.ok(blocked);
 }
 console.log('PASS: separate unpaid trial, cash total, no checkout/payment mutation, malformed terms blocked');
+const familyTerms={...terms,initial_agorot:45000,initial_lesson_agorot:15000,initial_lesson_count:3,monthly_agorot:60000,recurring_starts_on:'2026-12-10',payment_flow:'separate',family_enrollment:true,existing_sibling_name:'אח לדוגמה',family_monthly_agorot:120000};
+a=await scenario({ok:true,terms:familyTerms});
+let familyCopy=a.parent.children[0].children.map(x=>x.textContent||'').join(' ');
+assert.match(familyCopy,/אח לדוגמה/);assert.match(familyCopy,/3 שיעורים × 150/);assert.match(familyCopy,/450/);assert.match(familyCopy,/1,200 ₪ לחודש לשני הילדים/);assert.match(familyCopy,/10\/12\/2026/);assert.doesNotMatch(familyCopy,/זיכוי|הקמת הוראת קבע/);assert.match(a.price.textContent,/1,200/);
+a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.find(x=>x.tag==='a').href,terms.payment_url);assert.doesNotMatch(a.success.children[0].children.find(x=>x.tag==='a').textContent,/להקמת הוראת קבע/);assert.equal(a.calls.length,1);
+for(const change of [{family_monthly_agorot:60000},{initial_agorot:40000},{existing_sibling_name:''},{payment_flow:'recurring_initial'},{monthly_agorot:120000},{recurring_starts_on:null}]){
+ a=await scenario({ok:true,terms:{...familyTerms,...change}});let blocked=false;a.form.listener({preventDefault(){blocked=true},stopImmediatePropagation(){}});assert.ok(blocked);a.window.EnrollmentPayment.completed();assert.equal(a.success.children.length,0);
+}
+console.log('PASS: prepared family summary, no 50 ILS credit, 450 one-off, 1200 next month, existing sibling name, malformed family terms fail closed');

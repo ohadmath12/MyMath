@@ -8,11 +8,15 @@
   }
   function render(target, paymentButton) {
     target.textContent = '';
+    var family = terms.family_enrollment === true;
     var recurringInitial = terms.monthly_method === 'recurring' && terms.payment_flow === 'recurring_initial';
-    var title = document.createElement('h3'); title.textContent = 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
+    var title = document.createElement('h3'); title.textContent = family ? 'הרשמה משפחתית — הצטרפות אח או אחות' : 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
+    if (family) {
+      var sibling = document.createElement('p'); sibling.textContent = 'אח או אחות שכבר במסגרת: ' + terms.existing_sibling_name + '. הפרטים והחתימה בטופס זה מיועדים לילד המצטרף בלבד; אין צורך לרשום מחדש את האח הקיים.'; target.appendChild(sibling);
+    }
     var line = document.createElement('p');
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
-    line.textContent = 'יתרת חודש ' + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. הסכום מתייחס לשיעורים שנותרו לאחר הניסיון; תשלום הניסיון נפרד.';
+    line.textContent = (family ? 'תשלום חד־פעמי לילד המצטרף — יתרת חודש ' : 'יתרת חודש ') + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. הסכום מתייחס לשיעורים שנותרו לאחר הניסיון; תשלום הניסיון נפרד.';
     target.appendChild(line);
     if (terms.monthly_method === 'cash') {
       var trial = terms.unpaid_trial_agorot || 0;
@@ -27,7 +31,10 @@
       breakdown.textContent = 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. שיעור הניסיון אינו כלול.';
       target.appendChild(breakdown);
     }
-    if (terms.monthly_agorot) {
+    if (family) {
+      var familyMonthly = document.createElement('p'); familyMonthly.textContent = 'החל מ־' + terms.recurring_starts_on.split('-').reverse().join('/') + ': 600 ₪ לכל ילד — 1,200 ₪ לחודש לשני הילדים יחד. המרכז יעדכן את הוראת הקבע הקיימת ב־Grow. התשלום החד־פעמי כאן אינו מקים הוראת קבע נוספת.'; target.appendChild(familyMonthly);
+    }
+    if (terms.monthly_agorot && !family) {
       var monthly = document.createElement('p');
       monthly.textContent = 'החל מהחודש הבא — מחיר חודשי מוסכם: ' + (terms.monthly_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'}) + (terms.sibling_discount ? ' · מחיר אחים' : '') + '.';
       var personalRecurring = terms.monthly_agorot !== 65000 && terms.monthly_method === 'recurring' && /^\d{4}-\d{2}-\d{2}$/.test(terms.recurring_starts_on || '');
@@ -77,9 +84,10 @@
               field.value = value;
             });
           }
+          if (terms && terms.family_enrollment && (terms.family_enrollment !== true || terms.monthly_method !== 'recurring' || terms.payment_flow !== 'separate' || terms.monthly_agorot !== 60000 || terms.family_monthly_agorot !== 120000 || terms.initial_lesson_agorot !== 15000 || typeof terms.existing_sibling_name !== 'string' || !terms.existing_sibling_name.trim() || !/^\d{4}-\d{2}-10$/.test(terms.recurring_starts_on || ''))) throw Error('invalid_family_terms');
           if (terms && terms.monthly_agorot) {
             var price = document.querySelector('.payment-price');
-            if (price) price.textContent = (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
+            if (price) price.textContent = terms.family_enrollment ? '1,200 ₪ / לחודש לשני הילדים — מהחודש הבא' : (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
           }
           if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
           if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash'))) throw Error('invalid_unpaid_trial');
