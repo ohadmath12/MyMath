@@ -37,6 +37,7 @@ function doPost(e){
  try{
   if(!e||!e.postData||typeof e.postData.contents!=='string'||e.postData.contents.length>12000)throw Error('invalid_body');
   var body=JSON.parse(e.postData.contents),secret=PropertiesService.getScriptProperties().getProperty('MARATHON_GATEWAY_SECRET');
+  if(body&&body.payload&&body.payload.operation==='marathon_personal_links')return ContentService.createTextOutput(JSON.stringify(mwCrmPersonalLinks_(body.payload))).setMimeType(ContentService.MimeType.JSON);
   if(!secret||!body||body.gateway_secret!==secret||!body.payload)throw Error('unauthorized');
   var ss=SpreadsheetApp.openById(MW_BOOK),a=body.payload;
   if(a.operation==='marathon_catalog')result={ok:true,events:mwCatalog_(ss)};

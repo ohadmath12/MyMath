@@ -83,7 +83,8 @@ function mwSavePaymentSettings_(data){
  props.setProperty('MW_CHECKOUT_'+id,JSON.stringify(settings));props.setProperty('MW_PAYMENT_SETTINGS_V1',JSON.stringify(settings));return{ok:true};
 }
 
-function mwAdminCreateInvitation(data){mwRequireOwner_();var lock=LockService.getScriptLock();lock.waitLock(20000);try{
+function mwAdminCreateInvitation(data){mwRequireOwner_();return mwCreateInvitation_(data);}
+function mwCreateInvitation_(data){var lock=LockService.getScriptLock();lock.waitLock(20000);try{
  var id=mwCommandId_(data.commandId),first=mwText_(data.first,60),last=mwText_(data.last,60),phone=mwPhone_(data.phone,false),amount=Number(data.amount),method=data.method;
  if(!first||!last||!['grow','cash'].includes(method)||data.amount===''||!isFinite(amount)||amount<=0||amount>10000||Math.abs(amount*100-Math.round(amount*100))>0.000001)throw Error('יש למלא שם תלמיד, טלפון הורה וסכום תקינים');
  var standard=mwPaymentSettings_(),url=method==='cash'?'':(amount===100&&!data.url?standard.url:mwGrowUrl_(data.url));if(method==='grow'&&(!url||data.confirmed!==true))throw Error('יש לבדוק ולאשר שקישור Grow מתאים לסכום');
@@ -94,7 +95,8 @@ function mwAdminCreateInvitation(data){mwRequireOwner_();var lock=LockService.ge
  var token=(Utilities.getUuid()+Utilities.getUuid()).replace(/-/g,''),link='https://ohadmath12.github.io/MyMath/marathons/#invite='+token;
  var record=Object.assign({},terms,{terms:terms,expires:Date.now()+30*86400000,link:link});props.setProperty('MW_INV_'+id,JSON.stringify(record));props.setProperty('MW_INV_TOKEN_'+mwTokenHash_(token),id);return{url:link};
  }finally{lock.releaseLock();}}
-function mwAdminRevokeInvitation(data){mwRequireOwner_();var id=mwCommandId_(data.id),lock=LockService.getScriptLock();lock.waitLock(20000);try{var props=PropertiesService.getScriptProperties(),raw=props.getProperty('MW_INV_'+id);if(!raw)throw Error('ההזמנה לא נמצאה');var p=JSON.parse(raw);p.revoked=true;props.setProperty('MW_INV_'+id,JSON.stringify(p));return{ok:true};}finally{lock.releaseLock();}}
+function mwAdminRevokeInvitation(data){mwRequireOwner_();return mwRevokeInvitation_(data);}
+function mwRevokeInvitation_(data){var id=mwCommandId_(data.id),lock=LockService.getScriptLock();lock.waitLock(20000);try{var props=PropertiesService.getScriptProperties(),raw=props.getProperty('MW_INV_'+id);if(!raw)throw Error('ההזמנה לא נמצאה');var p=JSON.parse(raw);p.revoked=true;props.setProperty('MW_INV_'+id,JSON.stringify(p));return{ok:true};}finally{lock.releaseLock();}}
 
 function mwAdminInvitations_(){var all=PropertiesService.getScriptProperties().getProperties();return Object.keys(all).filter(function(k){return k.indexOf('MW_INV_')===0&&k.indexOf('MW_INV_TOKEN_')!==0;}).map(function(k){var p=JSON.parse(all[k]);return{id:p.id,name:p.first+' '+p.last,amount:p.amount,method:p.method,url:p.link,revoked:!!p.revoked,expires:p.expires};}).sort(function(a,b){return b.expires-a.expires;});}
 
@@ -148,4 +150,22 @@ function mwCrmCheckout_(ss,p){
   var response=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/marathon_checkout_state',{method:'post',contentType:'application/json',headers:headers,payload:JSON.stringify({source:'receipt:'+p.id}),muteHttpExceptions:true});
   if(response.getResponseCode()!==200)return'pending';var state=JSON.parse(response.getContentText());if(!state.known)return'pending';if(state.blocked)return'review';if(state.paid)return'recorded';return'ready';
  }catch(e){return'pending';}
+}
+
+// CRM calls use the signed-in manager JWT, independently verified by Supabase.
+// Underscore helpers are not exposed to google.script.run; gateway secret alone
+// never authorizes invitation administration.
+function mwCrmPersonalLinks_(a){
+ var token=String(a.access_token||''),branch=String(a.branch_id||'');
+ if(!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)||token.length>6000||!/^[-0-9a-f]{36}$/.test(branch)||!['list','create','revoke'].includes(a.action))return{ok:false,code:'unauthorized'};
+ var props=PropertiesService.getScriptProperties(),key=props.getProperty('MW_CRM_PUBLIC_KEY');if(!mwCrmEnabled_()||!key)return{ok:false,code:'not_configured'};
+ try{
+  var check=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/billing_manager',{method:'post',contentType:'application/json',headers:{apikey:key,Authorization:'Bearer '+token},payload:JSON.stringify({b:branch}),muteHttpExceptions:true});
+  if(check.getResponseCode()!==200||JSON.parse(check.getContentText())!==true)return{ok:false,code:'unauthorized'};
+ }catch(e){return{ok:false,code:'authorization_unavailable'};}
+ try{
+  if(a.action==='list')return{ok:true,invitations:mwAdminInvitations_()};
+  var result=a.action==='create'?mwCreateInvitation_(a.data||{}):mwRevokeInvitation_(a.data||{});
+  return Object.assign({ok:true},result);
+ }catch(e){return{ok:false,code:'invalid_terms',message:/^[\u0590-\u05ff]/.test(String(e.message))?String(e.message).slice(0,200):'לא ניתן להשלים את הפעולה. בדקו את הפרטים ונסו שוב.'};}
 }

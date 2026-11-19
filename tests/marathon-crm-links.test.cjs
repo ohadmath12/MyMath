@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+let allow=false,networkFail=false,creates=0,revokes=0,checks=0;
+const ctx={console,PropertiesService:{getScriptProperties:()=>({getProperty:k=>k==='MW_CRM_ENABLED'?'true':k==='MW_CRM_PUBLIC_KEY'?'PUBLIC':null})},UrlFetchApp:{fetch:(url,o)=>{checks++;assert.equal(url,'https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/billing_manager');assert.equal(o.headers.Authorization,'Bearer header.payload.signature');assert.deepEqual(JSON.parse(o.payload),{b:'11111111-1111-4111-8111-111111111111'});if(networkFail)throw Error('network');return{getResponseCode:()=>200,getContentText:()=>JSON.stringify(allow)}}},Session:{getActiveUser:()=>({getEmail:()=>''})}};
+vm.createContext(ctx);vm.runInContext(fs.readFileSync('marathon-script/Intake.gs','utf8')+'\n'+fs.readFileSync('marathon-script/Admin.gs','utf8'),ctx);
+ctx.mwCreateInvitation_=()=>{creates++;return{url:'test'}};ctx.mwRevokeInvitation_=()=>{revokes++;return{ok:true}};ctx.mwAdminInvitations_=()=>[{id:'test'}];
+const a={access_token:'header.payload.signature',branch_id:'11111111-1111-4111-8111-111111111111',action:'create',data:{}};
+assert.equal(ctx.mwCrmPersonalLinks_({...a,access_token:''}).code,'unauthorized');assert.equal(checks,0);
+assert.equal(ctx.mwCrmPersonalLinks_(a).code,'unauthorized');assert.equal(creates,0);
+allow=true;assert.equal(ctx.mwCrmPersonalLinks_(a).url,'test');assert.equal(creates,1);
+assert.equal(ctx.mwCrmPersonalLinks_({...a,action:'list'}).invitations.length,1);
+assert.equal(ctx.mwCrmPersonalLinks_({...a,action:'revoke'}).ok,true);assert.equal(revokes,1);
+networkFail=true;assert.equal(ctx.mwCrmPersonalLinks_(a).code,'authorization_unavailable');assert.equal(creates,1);
+assert.throws(()=>ctx.mwAdminCreateInvitation({}),/בעל החשבון/);
+assert.throws(()=>ctx.mwAdminRevokeInvitation({}),/בעל החשבון/);
+assert.equal(ctx.mwCrmPersonalLinks_({...a,action:'savePaymentSettings'}).code,'unauthorized');
+console.log('PASS: verified manager required for list/create/revoke; no anonymous or gateway-only admin access; original owner RPCs remain protected');
