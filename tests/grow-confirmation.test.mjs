@@ -6,3 +6,11 @@ a=await fixture([{ok:true,state:'pending',paid:false,can_complete:false}]);asser
 a=await fixture([new Error('network')]);assert.equal((await a.instance.check(true)).can_complete,false);assert.equal(a.instance.getState().state,'unavailable');
 a=await fixture([{ok:false,paid:true,can_complete:true}]);assert.equal((await a.instance.check(true)).can_complete,false);
 console.log('PASS provider confirmation UI: only backend result unlocks, no parallel duplicate queries, polls do not trigger provider requests, failed/invalid responses fail closed');
+
+// Mobile return uses visibilitychange, while reload/pageshow must discover an existing payment.
+let listeners={},requests=[];let document={visibilityState:'visible',addEventListener:(k,f)=>listeners[k]=f};let window={ENROLLMENT_PAYMENT_CONFIG:{url:'https://fixture.invalid',key:'anon'},addEventListener:(k,f)=>listeners[k]=f};
+vm.runInNewContext(source,{window,document,setTimeout:f=>f(),fetch:async(u,o)=>{requests.push(JSON.parse(o.body));return {ok:true,json:async()=>({ok:true,state:requests.length>1?'paid':'pending',paid:requests.length>1,can_complete:requests.length>1})}}});
+let instance=window.GrowConfirmation.create('lead','token',()=>{});instance.watchReturn();await instance.check(false);assert.equal(requests[0].refresh,true);
+document.visibilityState='hidden';listeners.visibilitychange();assert.equal(requests.length,1);
+document.visibilityState='visible';listeners.visibilitychange();await instance.check(false);assert.equal(instance.getState().paid,true);let count=requests.length;listeners.focus();listeners.pageshow();assert.equal(requests.length,count);
+console.log('PASS mobile return and initial load refresh provider status; hidden/paid pages do not requery');

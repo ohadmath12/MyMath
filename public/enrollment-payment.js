@@ -123,7 +123,7 @@
             window.addEventListener('focus',function(){if(openedPayment){openedPayment=false;confirmation.check(true);}});
             form.addEventListener('submit',function(event){if(confirmation.getState().can_complete!==true){event.preventDefault();event.stopImmediatePropagation();confirmation.check(true);}},true);
             if(submitButton&&!resuming)submitButton.disabled=true;
-            confirmation.check(false);
+            confirmation.watchReturn();
           }
           if (!resuming) { form.hidden=false;form.inert=false; }
           if (r.registration_saved === true) document.dispatchEvent(new CustomEvent('registration-payment-resume',{detail:{registrationId:r.registration_id}}));
