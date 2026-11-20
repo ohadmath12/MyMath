@@ -14,6 +14,7 @@ function enableUnifiedCheckout(){
 }
 function checkoutReady_(){if(PropertiesService.getScriptProperties().getProperty('UNIFIED_CHECKOUT_ENABLED')!=='true')throw Error('checkout_not_enabled');}
 function stageCheckoutDraft_(payload){
+ if(!payload||payload.honeypot)throw Error('invalid_checkout');
  checkoutReady_();validateRequiredFields_(payload);var n=normalizePayload_(payload);validateNormalizedPayload_(n);decodeSignature_(n.signature_data_url);
  var kind=payload.lead_token?'lead':'trial',token=payload.lead_token||payload.trial_token;
  if(!/^[a-f0-9]{64}$/.test(token||'')||(payload.lead_token&&payload.trial_token))throw Error('invalid_invitation');
