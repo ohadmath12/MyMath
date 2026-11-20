@@ -4,7 +4,7 @@
  var status=document.getElementById('family-status'),initialFrame=document.getElementById('child-form'),next=document.getElementById('family-next'),complete=document.getElementById('family-complete'),payment=document.getElementById('family-payment'),childStep=document.getElementById('child-step');
  function text(parent,tag,value){var n=document.createElement(tag);n.textContent=value;parent.appendChild(n);return n;}
  function showChild(i){if(!frames[0])initialFrame.hidden=true;current=i;payment.hidden=true;childStep.hidden=false;next.hidden=true;frames.forEach(function(f,j){if(f)f.hidden=j!==i;});document.getElementById('child-title').textContent='שלב '+(i+1)+' מתוך 3 — '+data.children[i].name;if(!frames[i]){var f=i===0?initialFrame:initialFrame.cloneNode(false);f.id='child-form-'+i;f.title='פרטי '+data.children[i].name+' וחתימת ההורה';f.hidden=false;f.src='./index.html?family_embed=1&family_token='+encodeURIComponent(token)+'&release=20261120-unified#lead='+encodeURIComponent(data.children[i].token);if(i!==0)initialFrame.parentNode.insertBefore(f,next);frames[i]=f;}}
- function show(){var i=drafts.indexOf(false);if(i<0){current=2;frames.forEach(function(f){if(f)f.hidden=true;});childStep.hidden=true;payment.hidden=false;complete.disabled=checkoutReceipts.some(function(v){return !v;});return;}showChild(i);}
+ function show(){var i=drafts.indexOf(false);if(i<0){current=2;frames.forEach(function(f){if(f)f.hidden=true;});childStep.hidden=true;payment.hidden=false;complete.disabled=checkoutReceipts.some(function(v,i){return !v&&!saved[i];});return;}showChild(i);}
  function finalizeNext(){var i=saved.indexOf(false);if(i<0){finishing=false;payment.hidden=true;childStep.hidden=true;status.textContent='ההרשמה המשפחתית הושלמה. התשלום אושר ב־Grow; המרכז ישלים את הבדיקה והשיוך במערכת.';status.focus();return;}showChild(i);status.textContent='משלימים את הרשמת '+data.children[i].name+'…';frames[i].contentWindow.postMessage({type:'mythematix-family-finalize',token:data.children[i].token},location.origin);}
  next.addEventListener('click',show);
  window.addEventListener('message',function(event){
@@ -17,7 +17,7 @@
  });
  if(!token||! /^[a-f0-9]{64}$/.test(token)){status.textContent='הקישור אינו תקין. בקשו מהמרכז קישור משפחתי אישי.';return;}
  complete.disabled=true;
- complete.addEventListener('click',async function(){if(finishing||checkoutReceipts.some(function(v){return !v;}))return;finishing=true;complete.disabled=true;var payWindow=window.open('about:blank','mythematix-payment');if(payWindow)payWindow.opener=null;try{var r=await window.CheckoutFlow.api('family-checkout',{family_token:token,checkout_tokens:checkoutReceipts});window.CheckoutFlow.start(checkoutReceipts,r.payment_url);if(payWindow&&r.payment_url)payWindow.location.href=r.payment_url;else if(payWindow)payWindow.close();}catch(e){if(payWindow)payWindow.close();finishing=false;complete.disabled=false;status.textContent='לא הצלחנו להכין את המעבר לתשלום. הפרטים שמורים; נסו שוב.';}});
+ complete.addEventListener('click',async function(){if(finishing||checkoutReceipts.some(function(v,i){return !v&&!saved[i];}))return;finishing=true;complete.disabled=true;var payWindow=window.open('about:blank','mythematix-payment');if(payWindow)payWindow.opener=null;try{var r=await window.CheckoutFlow.api('family-checkout',{family_token:token,checkout_tokens:checkoutReceipts.filter(Boolean)});window.CheckoutFlow.start(checkoutReceipts.filter(Boolean),r.payment_url);if(payWindow&&r.payment_url)payWindow.location.href=r.payment_url;else if(payWindow)payWindow.close();}catch(e){if(payWindow)payWindow.close();finishing=false;complete.disabled=false;status.textContent='לא הצלחנו להכין את המעבר לתשלום. הפרטים שמורים; נסו שוב.';}});
 
  var config=window.ENROLLMENT_PAYMENT_CONFIG;
  fetch(config.url+'/rest/v1/rpc/family_registration_public',{method:'POST',headers:{'Content-Type':'application/json',apikey:config.key},body:JSON.stringify({token:token})}).then(function(r){if(!r.ok)throw Error();return r.json();}).then(async function(r){
@@ -27,6 +27,11 @@
   var pay=document.getElementById('family-pay'),check=document.getElementById('family-check-payment'),paymentStatus=document.getElementById('family-payment-status');pay.href=r.payment_url;
   var resume=await window.CheckoutFlow.api('checkout-resume',{kind:'family',token:token});
   resume.checkouts.forEach(function(c){var i=data.children.findIndex(function(ch){return ch.token===c.child_token;});if(i>=0){checkoutReceipts[i]=c.checkout_token;drafts[i]=true;}});
+  if(saved.every(Boolean)&&resume.checkouts.length===0){
+   childStep.hidden=true;payment.hidden=false;complete.hidden=true;pay.hidden=false;check.hidden=true;
+   confirmation=window.GrowConfirmation.create('family',token,function(state,label){paymentStatus.textContent=label;pay.hidden=state.paid;if(state.paid){payment.hidden=true;status.textContent='התשלום התקבל וההרשמה המשפחתית הושלמה. תודה!';}});pay.textContent='לתשלום ולהשלמת ההרשמה';confirmation.watchReturn();return;
+  }
+  if(resume.checkouts.length&&resume.checkouts.every(function(c){return c.armed;})&&data.children.every(function(c,i){return saved[i]||!!checkoutReceipts[i];})){window.CheckoutFlow.start(resume.checkouts,resume.checkouts[0].payment_url);return;}
   if(resume.complete_set&&resume.checkouts.every(function(c){return c.armed;})){window.CheckoutFlow.start(resume.checkouts,resume.checkouts[0].payment_url);return;}
   show();
  }).catch(function(){status.textContent='לא ניתן לטעון את ההרשמה המשפחתית. הקישור עשוי לפוג או להשתנות; פנו למרכז לפני מילוי או תשלום.';});

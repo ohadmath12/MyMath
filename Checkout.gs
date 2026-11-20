@@ -35,9 +35,9 @@ function stageCheckoutDraft_(payload){
 }
 function checkoutFind_(receipt){if(!/^[a-f0-9]{64}$/.test(receipt||''))throw Error('invalid_checkout');var s=checkoutSheet_(),rows=checkoutRows_(s),hash=checkoutHash_(receipt),i=rows.findIndex(function(r){return r[1]===hash;});if(i<0)throw Error('invalid_checkout');return {sheet:s,row:i+2,values:rows[i]};}
 function armFamilyCheckout_(p){
- checkoutReady_();if(!Array.isArray(p.checkout_tokens)||p.checkout_tokens.length!==2||p.checkout_tokens[0]===p.checkout_tokens[1])throw Error('invalid_family_checkout');
+ checkoutReady_();if(!Array.isArray(p.checkout_tokens)||p.checkout_tokens.length<1||p.checkout_tokens.length>2||(p.checkout_tokens.length===2&&p.checkout_tokens[0]===p.checkout_tokens[1]))throw Error('invalid_family_checkout');
  var g=checkoutRpc_('family_registration_public',{token:p.family_token}),found=p.checkout_tokens.map(checkoutFind_),drafts=found.map(function(f){return JSON.parse(DriveApp.getFileById(f.values[3]).getBlob().getDataAsString());});
- if(!g.children||g.children.length!==2||drafts.some(function(d){return d.family_token!==p.family_token;})||g.children.some(function(c){return drafts.filter(function(d){return d.token===c.token;}).length!==1;}))throw Error('family_mismatch');
+ if(!g.children||g.children.length!==2||drafts.some(function(d,i){return d.family_token!==p.family_token||!g.children.some(function(c){return c.token===d.token;})||drafts.some(function(other,j){return i!==j&&other.token===d.token;});})||g.children.some(function(c){return !c.completed&&drafts.filter(function(d){return d.token===c.token;}).length!==1;}))throw Error('family_mismatch');
  drafts.forEach(function(d){var t=checkoutRpc_('registration_payment_terms',{kind:d.kind,token:d.token});if(checkoutTerms_(t.terms)!==d.terms)throw Error('terms_changed');});
  var lock=LockService.getScriptLock();lock.waitLock(30000);try{found.forEach(function(f){f.sheet.getRange(f.row,8).setValue(true);});}finally{lock.releaseLock();}
  var payment=checkoutPaymentState_('family',p.family_token);
