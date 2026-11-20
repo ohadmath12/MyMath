@@ -67,7 +67,7 @@ a=await scenario({ok:true,terms,registration_saved:true,registration_id:'saved-i
 console.log('PASS: saved forms resume payment; confirmed receipt hides checkout; no submission or payment mutation');
 
 
-a=await scenario({ok:true,registration_saved:false,terms,payment_verified:false});assert.equal(a.form.hidden,false);assert.equal(a.form.inert,false);assert.equal(a.parent.children[0].id,'enrollment-checkout');assert.equal(a.parent.children[0].children.filter(x=>x.tag==='a').length,1);
+a=await scenario({ok:true,registration_saved:false,terms,payment_verified:false});assert.equal(a.form.hidden,false);assert.equal(a.form.inert,false);assert.equal(a.parent.children[0].id,'enrollment-checkout');assert.equal(a.parent.children[0].children.filter(x=>x.tag==='a').length,0);
 a.window.EnrollmentPayment.completed();assert.equal(a.success.children[0].children.filter(x=>x.tag==='a').length,0);assert.match(a.success.children[0].children[0].textContent,/ההרשמה נשלחה/);assert.equal(a.calls.length,1);
 a=await scenario({ok:true,registration_saved:false,terms:{...terms,monthly_method:'cash',payment_url:null}});assert.equal(a.form.hidden,false);assert.equal(a.parent.children[0].children.filter(x=>x.tag==='a').length,0);
 for(const result of [{ok:false},{ok:true,terms:null},{ok:true,terms:{...terms,payment_url:'https://evil.invalid'}}]){a=await scenario(result);assert.equal(a.form.hidden,true);}

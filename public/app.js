@@ -168,7 +168,7 @@
   var formCard = document.getElementById('form-card');
   var submitBtn = document.getElementById('submit-btn');
   var submitBtnLabel = document.getElementById('submit-btn-label');
-  submitBtnLabel.textContent=familyEmbedded?'להמשך ההרשמה המשפחתית':'השלמת הרשמה';
+  submitBtnLabel.textContent=familyEmbedded?'להמשך ההרשמה המשפחתית':'לתשלום ולהשלמת ההרשמה';
   var formError = document.getElementById('form-error');
   var successCard = document.getElementById('success-card');
   var successId = document.getElementById('success-id');
@@ -397,7 +397,7 @@
   function setLoadingState(loading) {
     isSubmitting = loading;
     submitBtn.disabled = loading;
-    submitBtnLabel.textContent = loading ? 'שומר את ההרשמה…' : familyEmbedded ? 'להמשך ההרשמה המשפחתית' : 'השלמת הרשמה';
+    submitBtnLabel.textContent = loading ? 'שומר את ההרשמה…' : familyEmbedded ? 'להמשך ההרשמה המשפחתית' : 'לתשלום ולהשלמת ההרשמה';
   }
 
   function resetForm() {
@@ -441,10 +441,6 @@
       return;
     }
 
-    if(familyEmbedded&&!familyFinalizeRequested){
-      window.parent.postMessage({type:'mythematix-family-child-draft',token:familyChildToken},location.origin);
-      return;
-    }
 
     if (!clientSubmissionId) clientSubmissionId = createClientSubmissionId();
     if (trialToken || leadToken) sessionStorage.setItem('trial-conversion-submission', clientSubmissionId);
@@ -468,12 +464,14 @@
       client_submission_id: clientSubmissionId,
       trial_token: trialToken || undefined,
       lead_token: leadToken || undefined,
+      family_token: familyEmbedded ? new URLSearchParams(location.search).get('family_token') : undefined,
       turnstile_token: turnstileToken
     };
 
     setLoadingState(true);
 
-    fetch(ENDPOINT, {
+    var payWindow=null;if(!familyEmbedded){payWindow=window.open('about:blank','mythematix-payment');if(payWindow)payWindow.opener=null;}
+    fetch(ENDPOINT.replace(/\/api\/register$/,'/api/checkout'), {
       method: 'POST',
       // text/plain keeps the GitHub Pages request CORS-simple; the Worker still
       // parses and validates the body as JSON.
@@ -485,6 +483,13 @@
       })
       .then(function (response) {
         setLoadingState(false);
+        if (response && response.ok && response.checkout_token) {
+          if(familyEmbedded){window.parent.postMessage({type:'mythematix-family-child-draft',token:familyChildToken,checkout_token:response.checkout_token},location.origin);return;}
+          window.CheckoutFlow.start([response.checkout_token],response.payment_url);
+          if(payWindow&&response.payment_url){payWindow.location.href=response.payment_url;}else if(payWindow){payWindow.close();}
+          return;
+        }
+        if(payWindow)payWindow.close();
         if (response && response.ok) {
           sessionStorage.removeItem('trial-conversion-token');
           sessionStorage.removeItem('trial-conversion-submission');
@@ -502,6 +507,7 @@
         }
       })
       .catch(function () {
+        if(payWindow)payWindow.close();
         setLoadingState(false);
         resetTurnstile();
         showFormError('לא הצלחנו לשמור את ההרשמה. ודאו שהתשלום אושר ונסו שוב; אין לשלם שוב.');

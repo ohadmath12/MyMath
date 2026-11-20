@@ -16,7 +16,7 @@
     if (family) {
       var sibling = document.createElement('p'); sibling.textContent = 'אח או אחות שכבר במסגרת: ' + terms.existing_sibling_name + '. הפרטים והחתימה בטופס זה מיועדים לילד המצטרף בלבד; אין צורך לרשום מחדש את האח הקיים.'; target.appendChild(sibling);
     }
-    var line = document.createElement('p');
+    var line = document.createElement('p'); line.className='checkout-first-amount';
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
     line.textContent = (family ? 'תשלום חד־פעמי לילד המצטרף — יתרת חודש ' : 'תשלום עבור חודש ') + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. תשלום הניסיון נפרד.';
     target.appendChild(line);
@@ -105,27 +105,15 @@
           resuming = r.registration_saved === true;
           var embedded = terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
           if (embedded) { box.hidden=true; } else {
-            render(box,true);
-            var finishNote=document.createElement('p');finishNote.textContent=verified?'התשלום אושר על ידי המרכז. אין לשלם שוב; בדיקת Grow נדרשת להשלמת ההרשמה.':terms.monthly_method==='cash'?'לאחר הסדרת התשלום במזומן, לחצו על השלמת הרשמה.':'השלימו את התשלום ב־Grow, חזרו לעמוד הזה ולחצו על השלמת הרשמה. אם כבר שילמתם, אין לשלם שוב.';box.appendChild(finishNote);
+            render(box,resuming);
+            var finishNote=document.createElement('p');finishNote.textContent=terms.monthly_method==='cash'?'הפרטים יישמרו והמרכז ישלים את הטיפול במסלול המזומן שסוכם.':'לחיצה על הכפתור תשמור את הפרטים והחתימה ותעביר אתכם לתשלום מאובטח. לאחר אישור התשלום ההרשמה תושלם אוטומטית.';box.appendChild(finishNote);
           }
+          if(!resuming&&!embedded){box.querySelectorAll('p').forEach(function(p){p.textContent=p.textContent.replace(/לאחר התשלום הראשון המרכז יעדכן את הוראת הקבע למועד זה ולמחיר החודשי שסוכם\./,'').replace(/לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל\./,'');});}
           if (!embedded) {
-            var paymentStatus=document.createElement('p'); paymentStatus.setAttribute('role','status');box.appendChild(paymentStatus);
-            var checkButton=document.createElement('button');checkButton.type='button';checkButton.className='btn btn-primary';checkButton.textContent='בדיקת התשלום';box.appendChild(checkButton);checkControls=[paymentStatus,checkButton];
-            var submitButton=document.getElementById('submit-btn');
-            confirmation=window.GrowConfirmation.create(kind,token,function(state,label){
-              paymentStatus.textContent=label;checkButton.disabled=state.state==='checking';
-              checkButton.hidden=state.can_complete===true;
-              if(submitButton&&!resuming)submitButton.disabled=state.can_complete!==true;
-              if(state.paid)box.querySelectorAll('a[target="_blank"]').forEach(function(a){a.hidden=true;});
-            });
-            checkButton.addEventListener('click',function(){confirmation.check(true);});
-            var openedPayment=false;box.querySelectorAll('a[target="_blank"]').forEach(function(a){a.addEventListener('click',function(){openedPayment=true;});});
-            window.addEventListener('focus',function(){if(openedPayment){openedPayment=false;confirmation.check(true);}});
-            form.addEventListener('submit',function(event){if(confirmation.getState().can_complete!==true){event.preventDefault();event.stopImmediatePropagation();confirmation.check(true);}},true);
-            if(submitButton&&!resuming)submitButton.disabled=true;
-            confirmation.watchReturn();
+            var submitButton=document.getElementById('submit-btn');if(submitButton)submitButton.disabled=false;
           }
           if (!resuming) { form.hidden=false;form.inert=false; }
+          if(!embedded&&!resuming&&window.CheckoutFlow)window.CheckoutFlow.resume(kind,token);
           if (r.registration_saved === true) document.dispatchEvent(new CustomEvent('registration-payment-resume',{detail:{registrationId:r.registration_id}}));
         }).catch(function () { message('לא הצלחנו לטעון את תנאי ההרשמה האישיים. רעננו את העמוד או בקשו קישור אישי חדש מהמרכז.'); });
     },
