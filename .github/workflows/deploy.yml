@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'Code.gs'
+      - 'Checkout.gs'
       - 'LeadSync.gs'
       - 'NetworkLead.gs'
       - 'appsscript.json'
