@@ -1,11 +1,11 @@
 /** Durable, capability-protected checkout drafts. Never confirms payment from a redirect. */
-var CHECKOUT_HEADERS_=['key','receipt_hash','created_at','file_id','state','registration_id','checked_at','armed','lease_until','invitation_hash'];
+var CHECKOUT_HEADERS_=['key','receipt_hash','created_at','file_id','state','registration_id','checked_at','armed','lease_until','invitation_hash','payment_confirmed'];
 function checkoutRpc_(name,body){
  var r=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/'+name,{method:'post',contentType:'application/json',headers:{apikey:'sb_publishable_V1975vBFl1SQ4xKowUfCtQ_3-jhmrza'},payload:JSON.stringify(body),muteHttpExceptions:true});
  if(r.getResponseCode()!==200)throw Error('checkout_provider_unavailable');var d=JSON.parse(r.getContentText());if(!d.ok)throw Error('checkout_invitation_unavailable');return d;
 }
 function checkoutHash_(s){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,s).map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');}
-function checkoutSheet_(){var book=SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID'));var s=book.getSheetByName('PendingCheckouts');if(!s){s=book.insertSheet('PendingCheckouts');s.appendRow(CHECKOUT_HEADERS_);s.setFrozenRows(1);}return s;}
+function checkoutSheet_(){var book=SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID'));var s=book.getSheetByName('PendingCheckouts');if(!s){s=book.insertSheet('PendingCheckouts');s.appendRow(CHECKOUT_HEADERS_);s.setFrozenRows(1);}else if(!s.getRange(1,CHECKOUT_HEADERS_.length).getValues()[0][0])s.getRange(1,CHECKOUT_HEADERS_.length).setValue(CHECKOUT_HEADERS_[CHECKOUT_HEADERS_.length-1]);return s;}
 function checkoutRows_(s){return s.getLastRow()<2?[]:s.getRange(2,1,s.getLastRow()-1,CHECKOUT_HEADERS_.length).getValues();}
 function checkoutTerms_(terms){var out={};['initial_agorot','monthly_agorot','monthly_method','service_month','payment_flow','payment_url','recurring_starts_on','family_enrollment','new_siblings','family_url'].forEach(function(k){out[k]=terms[k]===undefined?null:terms[k];});return JSON.stringify(out);}
 function enableUnifiedCheckout(){
@@ -29,7 +29,7 @@ function stageCheckoutDraft_(payload){
   var receipt=(Utilities.getUuid()+Utilities.getUuid()).replace(/-/g,''),data={receipt:receipt,kind:kind,token:token,family_token:family,terms:checkoutTerms_(t.terms),payment_url:t.terms.payment_url||'',payload:Object.assign({},n,kind==='lead'?{lead_token:token}:{trial_token:token})};
   var folder=DriveApp.getFolderById(PropertiesService.getScriptProperties().getProperty('SIGNATURE_FOLDER_ID'));
   var file=folder.createFile(Utilities.newBlob(JSON.stringify(data),'application/json','pending-checkout-'+key+'.json'));
-  s.appendRow([key,checkoutHash_(receipt),new Date(),file.getId(),'pending','',new Date(0),!family,'',checkoutHash_(kind+':'+token)]);
+  s.appendRow([key,checkoutHash_(receipt),new Date(),file.getId(),'pending','',new Date(0),!family,'',checkoutHash_(kind+':'+token),false]);
   return {ok:true,checkout_token:receipt,payment_url:data.payment_url,state:'pending'};
  }finally{lock.releaseLock();}
 }
@@ -45,7 +45,7 @@ function armFamilyCheckout_(p){
 }
 function checkoutStatus_(p){
  var f=checkoutFind_(p.checkout_token),v=f.values;
- return {ok:true,state:v[4],registrationId:v[4]==='completed'?String(v[5]):null};
+ return {ok:true,state:v[4],registrationId:v[4]==='completed'?String(v[5]):null,payment_confirmed:v[10]===true};
 }
 function processPendingCheckouts(){
  checkoutReady_();var s=checkoutSheet_(),rows=checkoutRows_(s),now=Date.now(),processed=0;
@@ -67,7 +67,8 @@ function checkoutProcessRow_(row){
   var status=checkoutRpc_('registration_grow_status',{kind:d.kind,token:d.token,refresh:true});
   if(status.state==='checking'){Utilities.sleep(2000);status=checkoutRpc_('registration_grow_status',{kind:d.kind,token:d.token,refresh:false});}
   if(!status.can_complete)return;
-  s.getRange(row,5).setValue('paid');
+  s.getRange(row,11).setValue(status.paid===true);
+  s.getRange(row,5).setValue(status.paid===true?'paid':'pending');
   var result=saveRegistration(d.payload);if(!result.ok||!result.registrationId)throw Error('save_failed');
   s.getRange(row,5,1,2).setValues([['completed',result.registrationId]]);
  }finally{s.getRange(row,9).setValue('');}

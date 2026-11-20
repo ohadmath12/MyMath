@@ -110,7 +110,7 @@
           }
           if(!resuming&&!embedded){box.querySelectorAll('p').forEach(function(p){p.textContent=p.textContent.replace(/לאחר התשלום הראשון המרכז יעדכן את הוראת הקבע למועד זה ולמחיר החודשי שסוכם\./,'').replace(/לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל\./,'');});}
           if (!embedded) {
-            var submitButton=document.getElementById('submit-btn');if(submitButton)submitButton.disabled=false;
+            var submitButton=document.getElementById('submit-btn');if(submitButton)submitButton.disabled=false;var label=document.getElementById('submit-btn-label');if(label&&terms.monthly_method==='cash')label.textContent='אישור והשלמת ההרשמה';
           }
           if (!resuming) { form.hidden=false;form.inert=false; }
           if(!embedded&&!resuming&&window.CheckoutFlow)window.CheckoutFlow.resume(kind,token);
