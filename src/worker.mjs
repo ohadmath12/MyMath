@@ -79,12 +79,16 @@ export async function handleRequest(request, env, fetchImpl) {
 
   if (url.pathname === '/api/marathons' || url.pathname === '/api/marathon') return marathonRequest(request, env, fetchImpl, { json, validateTurnstile, publicError: PUBLIC_ERROR });
 
+  const isCheckoutResume = url.pathname === '/api/checkout-resume';
+  const isCheckout = url.pathname === '/api/checkout';
+  const isCheckoutStatus = url.pathname === '/api/checkout-status';
+  const isFamilyCheckout = url.pathname === '/api/family-checkout';
   const isPrefill = url.pathname === '/api/registration-prefill';
   const isTrial = url.pathname === '/api/trial';
   const isNetworkLead = url.pathname === '/api/network-lead';
   const isPublicLead = url.pathname === '/api/lead-public';
   const isLead = url.pathname === '/api/lead' || isPublicLead || isNetworkLead;
-  if (url.pathname !== '/api/register' && !isTrial && !isLead && !isPrefill) return env.ASSETS.fetch(request);
+  if (url.pathname !== '/api/register' && !isTrial && !isLead && !isPrefill && !isCheckout && !isCheckoutStatus && !isFamilyCheckout && !isCheckoutResume) return env.ASSETS.fetch(request);
   if (request.method === 'OPTIONS') {
     var corsOrigin = allowedCorsOrigin(request);
     if (!corsOrigin) return new Response(null, { status: 403 });
@@ -126,6 +130,14 @@ export async function handleRequest(request, env, fetchImpl) {
 
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
   if ((isTrial || isLead || isPrefill) && raw.length > 8192) return json({ ok: false, error: PUBLIC_ERROR }, 413, request);
+  if(isCheckoutStatus || isFamilyCheckout || isCheckoutResume){
+    if(raw.length>2048)return json({ok:false,error:PUBLIC_ERROR},413,request);
+    let data;
+    if(isCheckoutResume){if(!/^[a-f0-9]{64}$/.test(payload.token||'')||!['lead','trial','family'].includes(payload.kind))return json({ok:false,error:PUBLIC_ERROR},400,request);data={operation:'checkout_resume',token:payload.token,kind:payload.kind};}
+    else if(isCheckoutStatus){if(!/^[a-f0-9]{64}$/.test(payload.checkout_token||''))return json({ok:false,error:PUBLIC_ERROR},400,request);data={operation:'checkout_status',checkout_token:payload.checkout_token};}
+    else {if(!/^[a-f0-9]{64}$/.test(payload.family_token||'')||!Array.isArray(payload.checkout_tokens)||payload.checkout_tokens.length!==2||payload.checkout_tokens.some(t=>!/^[a-f0-9]{64}$/.test(t)))return json({ok:false,error:PUBLIC_ERROR},400,request);data={operation:'arm_family_checkout',family_token:payload.family_token,checkout_tokens:payload.checkout_tokens};}
+    try{let r=await fetchImpl(env.APPS_SCRIPT_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({gateway_secret:env.APPS_SCRIPT_SHARED_SECRET,payload:data}),redirect:'follow'});let d=await r.json();if(!r.ok||!d.ok)throw Error();return json(isCheckoutResume?{ok:true,checkouts:d.checkouts,complete_set:d.complete_set}:{ok:true,state:d.state,registrationId:d.registrationId||null,...(isFamilyCheckout?{payment_url:d.payment_url}:{})},200,request);}catch{return json({ok:false,error:PUBLIC_ERROR},502,request);}
+  }
   var token = String(payload.turnstile_token || '');
   if (!token || token.length > 2048) return json({ ok: false, error: PUBLIC_ERROR }, 400, request);
 
@@ -176,6 +188,7 @@ export async function handleRequest(request, env, fetchImpl) {
       return json({ok:true,requestId:trialResult.request_id},200,request);
     } catch { return json({ok:false,error:PUBLIC_ERROR},502,request); }
   }
+  if(isCheckout) payload.operation='stage_checkout';
   var upstream;
   try {
     upstream = await fetchImpl(env.APPS_SCRIPT_URL, {
@@ -196,6 +209,7 @@ export async function handleRequest(request, env, fetchImpl) {
     return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
 
+  if(isCheckout){if(!result?.ok||!/^[a-f0-9]{64}$/.test(result.checkout_token||''))return json({ok:false,error:PUBLIC_ERROR},502,request);return json({ok:true,checkout_token:result.checkout_token,payment_url:result.payment_url,state:result.state},200,request);}
   if (!result || result.ok !== true || typeof result.registrationId !== 'string') {
     return json({ ok: false, error: PUBLIC_ERROR }, 502, request);
   }
