@@ -12,17 +12,11 @@
     const cash=$('route').value==='cash';
     if (family && !cash) return `<section id="family-payment"><h2>שלב 3 — תשלום והשלמת הרשמה</h2><section id="family-terms"><h3>יתרת חודש — 300 ₪</h3><p>מחיר חודשי להמשך — 1,200 ₪ לשני הילדים, החל מ־10/12/2026.</p></section><p>הפרטים והחתימות של שני הילדים שמורים. תשלום אחד, והרשמה אוטומטית לשניהם — בלי לשלוח שוב את הטפסים.</p><button type="button" id="family-complete">לתשלום ולהשלמת ההרשמה</button></section>`;
 
+    if ($('form').value === 'individual' && $('route').value === 'advance') return `<section id="enrollment-checkout"><h3 class="checkout-first-amount">חיוב ראשון — 1 ₪</h3><p>מחיר חודשי להמשך — 650 ₪ החל מ־10/12/2026.</p></section><button type="button" id="submit-btn">לתשלום ולהשלמת ההרשמה</button>`;
     if ($('form').value === 'individual' && $('route').value === 'recurring') {
       // Synthetic example; wording mirrors the new-registration render path.
-      const money = n => n.toLocaleString('he-IL', {style:'currency',currency:'ILS'});
-      return `<section id="enrollment-checkout" class="enrollment-payment-terms">
-        <h3>תנאי התשלום שסוכמו עבורכם</h3>
-        <p class="checkout-first-amount">תשלום עבור חודש 11/2026: ${money(480)}. תשלום הניסיון נפרד.</p>
-        <p>המחיר החודשי להמשך: ${money(650)}.</p>
-        <p>מועד החיוב הבא שסוכם: 10/12/2026.</p>
-        <p>עברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום התשלום המוצג כאן.</p>
-        <p>לחיצה על הכפתור תשמור את הפרטים והחתימה ותעביר אתכם לתשלום מאובטח. לאחר אישור התשלום ההרשמה תושלם אוטומטית.</p>
-      </section><div class="submit-row"><p class="privacy-note">הפרטים ישמשו את MyTheMatix לצורך הרשמה, יצירת קשר וניהול התוכנית. המידע נשמר ומעובד במערכות Google ובמערכת ה־CRM של העסק, והגישה אליו מוגבלת למורשי העסק.</p><button type="button" id="submit-btn" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button></div>`;
+      
+      return `<section id="enrollment-checkout" class="enrollment-payment-terms"><h3 class="checkout-first-amount">יתרת חודש — 480 ₪</h3><p>מחיר חודשי להמשך — 650 ₪ החל מ־10/12/2026.</p></section><div class="submit-row"><button type="button" id="submit-btn" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button></div>`;
     }
 
     const text=cash?'מסלול מזומן: השלמת פרטים וחתימה. התשלום מתואם בנפרד עם המרכז.':$('form').value==='sibling'?'תשלום חד־פעמי עבור השיעורים שנותרו לאח המצטרף.':$('route').value==='advance'?'התשלום הראשון עבור החודש הבא במלואו.':family?'תשלום משותף לשני הילדים, בהתאם לתנאים האישיים.':'התשלום הראשון עבור החודש שנבחר, בהתאם לתנאים האישיים.';
@@ -49,7 +43,7 @@
       if(enrollment){
         const price=doc.querySelector('.payment-price');if(price)price.textContent='המחיר האישי יופיע בטופס ההורה';
         const contact=section('contact');if(contact)contact.appendChild(Object.assign(doc.createElement('p'),{textContent:'052-835-9521'}));
-        const child=[['על התוכנית',markup([section('program'),section('payment'),section('contact')])],['פרטי הורה',markup([groups[2]])],['פרטי תלמיד',markup([groups[0],groups[1]])],['תקנון וחתימה',markup([section('terms'),groups[3]])]];
+        const child=[['על התוכנית',markup([section('program'),section('contact')])],['פרטי הורה',markup([groups[2]])],['פרטי תלמיד',markup([groups[0],groups[1]])],['תקנון וחתימה',markup([section('terms'),groups[3]])]];
         pages=kind==='family'?[...child.map(([t,h])=>['ילד 1 · '+t,h]),...child.map(([t,h])=>['ילד 2 · '+t,h])]:child;
         pages.push(['תשלום והשלמת הרשמה',payment(kind==='family')]);
         if($('route').value!=='cash')pages.push(['ממתינים לאישור',card('ממתינים לאישור התשלום','המחשה בלבד: לאחר תשלום מוצלח ההרשמה מושלמת אוטומטית.')]);
@@ -68,15 +62,16 @@
     current=index;const [title,html]=pages[index];
     $('steps').replaceChildren(...pages.map(([name],i)=>{const b=document.createElement('button');b.type='button';b.textContent=name;if(i===index)b.setAttribute('aria-current','step');b.onclick=()=>show(i);return b;}));
     const policy="default-src 'none'; style-src "+location.origin+"; img-src "+location.origin+" data:; font-src "+location.origin+"; script-src 'none'; connect-src 'none'; form-action 'none'; base-uri 'none'";
-    $('preview').srcdoc=`<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${escape(policy)}">${styles}<link rel="stylesheet" href="${escape(new URL('frame.css',location.href).href)}"></head><body class="${escape(bodyClass)}"><main><div class="review-label">בקרה בלבד · ${escape(title)}</div><form>${html}</form></main></body></html>`;
+    $('preview').srcdoc=`<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="${escape(policy)}">${styles}${$('design').value==='apple'?`<link rel="stylesheet" href="${escape(new URL('apple.css',location.href).href)}">`:''}<link rel="stylesheet" href="${escape(new URL('frame.css',location.href).href)}"></head><body class="${escape(bodyClass)}"><main><div class="review-label">בקרה בלבד · ${escape(title)}</div><form>${html}</form></main></body></html>`;
     $('previous').disabled=index===0;$('next').disabled=index===pages.length-1;$('position').textContent=`${index+1} / ${pages.length}`;
-    history.replaceState(null,'','#'+new URLSearchParams({form:$('form').value,route:$('route').value,step:String(index+1),width:$('width').value}));
+    history.replaceState(null,'','#'+new URLSearchParams({form:$('form').value,route:$('route').value,step:String(index+1),width:$('width').value,design:$('design').value}));
   }
   const params=new URLSearchParams(location.hash.slice(1));
-  for(const id of ['form','route','width'])if([...$(id).options].some(o=>o.value===params.get(id)))$(id).value=params.get(id);
+  for(const id of ['form','route','width','design'])if([...$(id).options].some(o=>o.value===params.get(id)))$(id).value=params.get(id);
   current=Math.max(0,(parseInt(params.get('step'),10)||1)-1);
   $('form').onchange=()=>{current=0;load();};$('route').onchange=load;
   $('width').onchange=()=>{$('viewport').classList.toggle('mobile',$('width').value==='mobile');if(pages.length)show(current);};$('width').onchange();
+  $('design').onchange=()=>{if(pages.length)show(current);};
   $('previous').onclick=()=>show(current-1);$('next').onclick=()=>show(current+1);
   $('copy').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);$('note').textContent='הקישור לשלב הועתק. אפשר לצרף אותו להערות שלך.';}catch{$('note').textContent='אפשר להעתיק את כתובת העמוד משורת הכתובת.';}};
   load();

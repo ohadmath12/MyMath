@@ -12,6 +12,14 @@
     if (paymentButton && verified) { var confirmation=document.createElement('p'); confirmation.textContent='קבלת התשלום אושרה על ידי המרכז. אין צורך לשלם שוב.'; target.appendChild(confirmation); return; }
     var family = terms.family_enrollment === true;
     var recurringInitial = terms.monthly_method === 'recurring' && terms.payment_flow === 'recurring_initial';
+    if (!paymentButton && !family && !terms.new_siblings) {
+      var balance = document.createElement('h3'); balance.className='checkout-first-amount';
+      balance.textContent=(terms.initial_agorot===100 && recurringInitial ? 'חיוב ראשון — ' : 'יתרת חודש — ')+(terms.initial_agorot/100).toLocaleString('he-IL')+' ₪'; target.appendChild(balance);
+      if (terms.monthly_agorot) { var continuation=document.createElement('p'); continuation.textContent='מחיר חודשי להמשך — '+(terms.monthly_agorot/100).toLocaleString('he-IL')+' ₪'+(terms.recurring_starts_on?' החל מ־'+terms.recurring_starts_on.split('-').reverse().join('/'):'')+'.'; target.appendChild(continuation); }
+      if (terms.monthly_method==='cash') { var cashNote=document.createElement('p');cashNote.textContent='תשלום במזומן.';target.appendChild(cashNote);if(terms.unpaid_trial_agorot>0){var trialNote=document.createElement('p');trialNote.textContent='ניסיון שטרם שולם — '+(terms.unpaid_trial_agorot/100).toLocaleString('he-IL')+' ₪. סה״כ לתשלום — '+((terms.initial_agorot+terms.unpaid_trial_agorot)/100).toLocaleString('he-IL')+' ₪.';target.appendChild(trialNote);}}
+      return;
+    }
+
     var title = document.createElement('h3'); title.textContent = terms.new_siblings ? 'תשלום משפחתי משותף לשני הילדים' : family ? 'הרשמה משפחתית — הצטרפות אח או אחות' : 'תנאי התשלום שסוכמו עבורכם'; target.appendChild(title);
     if (family) {
       var sibling = document.createElement('p'); sibling.textContent = 'אח או אחות שכבר במסגרת: ' + terms.existing_sibling_name + '. הפרטים והחתימה בטופס זה מיועדים לילד המצטרף בלבד; אין צורך לרשום מחדש את האח הקיים.'; target.appendChild(sibling);
@@ -99,6 +107,7 @@
           if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
           if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash'))) throw Error('invalid_unpaid_trial');
           if (terms && terms.new_siblings && (terms.new_siblings !== true || terms.monthly_agorot !== 120000 || terms.payment_flow !== 'recurring_initial' || !/^https:\/\/ohadmath12\.github\.io\/MyMath\/family\.html#family=[a-f0-9]{64}$/.test(terms.family_url || ''))) throw Error('invalid_family_terms');
+          var programPayment=document.getElementById('payment');if(programPayment)programPayment.hidden=true;
           ready = true;
           if (window.FormPaymentStep) window.FormPaymentStep.configure(false);
           if (!terms) throw Error('missing_terms');
@@ -106,7 +115,7 @@
           var embedded = terms.new_siblings && window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
           if (embedded) { box.hidden=true; } else {
             render(box,resuming);
-            var finishNote=document.createElement('p');finishNote.textContent=terms.monthly_method==='cash'?'הפרטים יישמרו והמרכז ישלים את הטיפול במסלול המזומן שסוכם.':'לחיצה על הכפתור תשמור את הפרטים והחתימה ותעביר אתכם לתשלום מאובטח. לאחר אישור התשלום ההרשמה תושלם אוטומטית.';box.appendChild(finishNote);
+
           }
           if(!resuming&&!embedded){box.querySelectorAll('p').forEach(function(p){p.textContent=p.textContent.replace(/לאחר התשלום הראשון המרכז יעדכן את הוראת הקבע למועד זה ולמחיר החודשי שסוכם\./,'').replace(/לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל\./,'');});}
           if (!embedded) {
