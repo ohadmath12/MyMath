@@ -15,7 +15,7 @@
     if ($('form').value === 'individual' && $('route').value === 'advance') return `<section id="enrollment-checkout"><h3 class="checkout-first-amount">חיוב ראשון — 1 ₪</h3><p>מחיר חודשי להמשך — 650 ₪ החל מ־10/12/2026.</p></section><button type="button" id="submit-btn">לתשלום ולהשלמת ההרשמה</button>`;
     if ($('form').value === 'individual' && $('route').value === 'recurring') {
       // Synthetic example; wording mirrors the new-registration render path.
-      
+
       return `<section id="enrollment-checkout" class="enrollment-payment-terms"><h3 class="checkout-first-amount">יתרת חודש — 480 ₪</h3><p>מחיר חודשי להמשך — 650 ₪ החל מ־10/12/2026.</p></section><div class="submit-row"><button type="button" id="submit-btn" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button></div>`;
     }
 
@@ -37,7 +37,7 @@
       doc.querySelectorAll('input,textarea').forEach(n=>{n.removeAttribute('value');n.removeAttribute('checked');n.setAttribute('autocomplete','off');if(n.tagName==='TEXTAREA')n.textContent='';});
       doc.querySelectorAll('button').forEach(n=>{n.type='button';n.disabled=false;});
       doc.querySelectorAll('[src]').forEach(n=>{const asset=new URL(n.getAttribute('src'),url);if(asset.origin===location.origin)n.setAttribute('src',asset.href);else n.removeAttribute('src');});
-      styles=[...doc.querySelectorAll('link[rel=stylesheet]')].map(n=>new URL(n.getAttribute('href'),url)).filter(u=>u.origin===location.origin).map(u=>`<link rel="stylesheet" href="${escape(u.href)}">`).join('');
+      styles=[...doc.querySelectorAll('link[rel=stylesheet]')].map(n=>new URL(n.getAttribute('href'),url)).filter(u=>u.origin===location.origin&&!u.pathname.endsWith('/apple-forms.css')).map(u=>`<link rel="stylesheet" href="${escape(u.href)}">`).join('');
       bodyClass=doc.body.className;
       const form=doc.querySelector('form'), groups=[...form.querySelectorAll('.form-group')], section=id=>doc.getElementById(id);
       if(enrollment){
