@@ -10,6 +10,8 @@
   const card = (title, text, button) => `<section class="form-group"><h2>${escape(title)}</h2><p>${escape(text)}</p>${button?`<button type="button" class="btn btn-primary">${escape(button)}</button>`:''}</section>`;
   function payment(family=false) {
     const cash=$('route').value==='cash';
+    if (family && !cash) return `<section id="family-payment"><h2>שלב 3 — תשלום והשלמת הרשמה</h2><section id="family-terms"><h3>יתרת חודש — 300 ₪</h3><p>מחיר חודשי להמשך — 1,200 ₪ לשני הילדים, החל מ־10/12/2026.</p></section><p>הפרטים והחתימות של שני הילדים שמורים. תשלום אחד, והרשמה אוטומטית לשניהם — בלי לשלוח שוב את הטפסים.</p><button type="button" id="family-complete">לתשלום ולהשלמת ההרשמה</button></section>`;
+
     if ($('form').value === 'individual' && $('route').value === 'recurring') {
       // Synthetic example; wording mirrors the new-registration render path.
       const money = n => n.toLocaleString('he-IL', {style:'currency',currency:'ILS'});
