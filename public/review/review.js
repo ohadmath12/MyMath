@@ -10,6 +10,19 @@
   const card = (title, text, button) => `<section class="form-group"><h2>${escape(title)}</h2><p>${escape(text)}</p>${button?`<button type="button" class="btn btn-primary">${escape(button)}</button>`:''}</section>`;
   function payment(family=false) {
     const cash=$('route').value==='cash';
+    if ($('form').value === 'individual' && $('route').value === 'recurring') {
+      // Synthetic example; wording mirrors the new-registration render path.
+      const money = n => n.toLocaleString('he-IL', {style:'currency',currency:'ILS'});
+      return `<section id="enrollment-checkout" class="enrollment-payment-terms">
+        <h3>תנאי התשלום שסוכמו עבורכם</h3>
+        <p class="checkout-first-amount">תשלום עבור חודש 11/2026: ${money(480)}. תשלום הניסיון נפרד.</p>
+        <p>המחיר החודשי להמשך: ${money(650)}.</p>
+        <p>מועד החיוב הבא שסוכם: 10/12/2026.</p>
+        <p>עברו ל־Grow להזנת אשראי ולהקמת הוראת קבע. החיוב הראשון יבוצע מיד בסכום התשלום המוצג כאן.</p>
+        <p>לחיצה על הכפתור תשמור את הפרטים והחתימה ותעביר אתכם לתשלום מאובטח. לאחר אישור התשלום ההרשמה תושלם אוטומטית.</p>
+      </section><div class="submit-row"><p class="privacy-note">הפרטים ישמשו את MyTheMatix לצורך הרשמה, יצירת קשר וניהול התוכנית. המידע נשמר ומעובד במערכות Google ובמערכת ה־CRM של העסק, והגישה אליו מוגבלת למורשי העסק.</p><button type="button" id="submit-btn" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button></div>`;
+    }
+
     const text=cash?'מסלול מזומן: השלמת פרטים וחתימה. התשלום מתואם בנפרד עם המרכז.':$('form').value==='sibling'?'תשלום חד־פעמי עבור השיעורים שנותרו לאח המצטרף.':$('route').value==='advance'?'התשלום הראשון עבור החודש הבא במלואו.':family?'תשלום משותף לשני הילדים, בהתאם לתנאים האישיים.':'התשלום הראשון עבור החודש שנבחר, בהתאם לתנאים האישיים.';
     return card('תשלום והשלמת הרשמה',text,cash?'השלמת ההרשמה':'לתשלום ולהשלמת ההרשמה');
   }
@@ -45,7 +58,7 @@
         if(['trial','marathon'].includes(kind))pages.push(['תשלום',card('ממשיכים לתשלום מאובטח','המחשה בלבד: כאן מוצג הקישור בהתאם למחיר שסוכם.','לתשלום מאובטח')]);
         pages.push(['הצלחה',card('הפרטים התקבלו','המחשה בלבד — לא נשלחו פרטים מהתצוגה הזו.')]);
       }
-      $('note').textContent='שדות ונוסחים מתוך הטפסים הקיימים; מסכי התשלום והסטטוס הם המחשה ללא פרטי לקוחות או סכומים אישיים. לחתימה ולכפתורי הטופס אין פעולת שליחה.';
+      $('note').textContent='שדות ונוסחים מתוך הטפסים הקיימים; מסכי התשלום והסטטוס הם המחשה ללא פרטי לקוחות או סכומים אישיים. לחתימה ולכפתורי הטופס אין פעולת שליחה. ביחיד בהוראת קבע: דוגמה בלבד — 480 ₪ לנובמבר 2026, 650 ₪ להמשך מ־10/12/2026.';
       show(Math.min(current,pages.length-1));
     }catch(error){ console.error('Review rendering:',error); $('note').textContent='לא הצלחנו לטעון את הטופס. רענן את העמוד ונסה שוב.'; }
   }
