@@ -89,6 +89,13 @@ function mwCreateInvitation_(data){var lock=LockService.getScriptLock();lock.wai
  if(!first||!last||!['grow','cash'].includes(method)||data.amount===''||!isFinite(amount)||amount<=0||amount>10000||Math.abs(amount*100-Math.round(amount*100))>0.000001)throw Error('יש למלא שם תלמיד, טלפון הורה וסכום תקינים');
  var standard=mwPaymentSettings_(),url=method==='cash'?'':(amount===100&&!data.url?standard.url:mwGrowUrl_(data.url));if(method==='grow'&&(!url||data.confirmed!==true))throw Error('יש לבדוק ולאשר שקישור Grow מתאים לסכום');
  var props=PropertiesService.getScriptProperties(),old=props.getProperty('MW_INV_'+id),terms={id:id,first:first,last:last,phone:phone,amount:amount,method:method,url:url};
+ if(data.registration_event_id){
+  terms.registrationEventId=mwCommandId_(data.registration_event_id);
+  terms.registrationEventGrantId=data.registration_event_grant_id?mwCommandId_(data.registration_event_grant_id):null;
+  var event=mwRegistrationEvent_(terms.registrationEventId,terms.registrationEventGrantId),checkout=mwEventCheckoutTerms_(event);
+  if(method!=='grow'||Math.round(amount*100)!==event.quoted_agorot||url!==checkout.url)throw Error('פרטי התשלום אינם תואמים למרתון שנבחר');
+ }
+ else if(data.registration_event_grant_id)throw Error('נדרש מרתון להזמנה האישית');
  if(old){var previous=JSON.parse(old);if(JSON.stringify(previous.terms)!==JSON.stringify(terms))throw Error('הפרטים השתנו; רעננו ונסו שוב');return{url:previous.link};}
  var all=props.getProperties();Object.keys(all).filter(function(k){return k.indexOf('MW_INV_')===0&&k.indexOf('MW_INV_TOKEN_')!==0;}).forEach(function(k){var previous=JSON.parse(all[k]);if(url&&previous.url===url&&previous.amount!==amount)throw Error('למחיר שונה נדרש קישור Grow אחר');});
  if(url&&url===standard.url&&amount!==standard.amount)throw Error('קישור ברירת המחדל אינו מתאים למחיר האישי');
@@ -113,6 +120,63 @@ function mwAdminConfigureCrm(data){
  props.setProperty('MW_CRM_PUBLIC_KEY',key);props.setProperty('MW_CRM_ENABLED','true');
  if(!ScriptApp.getProjectTriggers().some(function(t){return t.getHandlerFunction()==='retryMarathonIntake';}))ScriptApp.newTrigger('retryMarathonIntake').timeBased().everyMinutes(5).create();
  mwCrmSyncSafely_();return{ok:true};
+}
+
+// Event-specific intake bypasses the legacy participant sheet and its import
+// queue. The original receipt stays immutable; SQL owns duplicate aliases.
+function mwEventRpc_(name,args){
+ if(!mwCrmEnabled_())throw Error('event_unavailable');
+ var props=PropertiesService.getScriptProperties(),key=props.getProperty('MW_CRM_PUBLIC_KEY'),secret=props.getProperty('MARATHON_GATEWAY_SECRET');
+ if(!key||!secret)throw Error('event_unavailable');
+ var response=UrlFetchApp.fetch('https://kstdmsfalsqpomaoddoq.supabase.co/rest/v1/rpc/'+name,{method:'post',contentType:'application/json',headers:{apikey:key,'x-marathon-key':secret},payload:JSON.stringify(args),muteHttpExceptions:true});
+ if(response.getResponseCode()!==200)throw Error('event_unavailable');
+ return JSON.parse(response.getContentText());
+}
+function mwRegistrationEvent_(id,grant){
+ var result=mwEventRpc_('marathon_registration_event',{event_id:id,grant_id:grant||null}),e=result&&result.event;
+ if(!e||e.id!==id||!Number.isInteger(e.quoted_agorot)||e.quoted_agorot<=0||e.quoted_agorot>1000000||typeof e.title!=='string')throw Error('event_unavailable');
+ return e;
+}
+function mwEventCheckoutTerms_(e){
+ var code=mwCommandId_(e.checkout_code),raw=PropertiesService.getScriptProperties().getProperty('MW_CHECKOUT_'+code),s=raw?JSON.parse(raw):null;
+ if(!s||s.revision!==code||!Number.isFinite(s.amount)||Math.round(s.amount*100)!==e.quoted_agorot)throw Error('event_unavailable');
+ return{amount:s.amount,url:mwGrowUrl_(s.url),revision:code,method:'grow'};
+}
+function mwEventRequestIdentity_(p){var copy=Object.assign({},p);delete copy.checkout;delete copy.eventSnapshot;return JSON.stringify(copy);}
+function mwRegistrationTitleFromReceipt_(ss,id){var log=mwEnsureLog_(ss),rows=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],row=rows.find(function(r){return r[0]===id;});return row?JSON.parse(row[18]).eventSnapshot.title:'';}
+function mwEventIntake_(ss,p){
+ var log=mwEnsureLog_(ss),rows=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],old=rows.findIndex(function(r){return r[0]===p.id;});
+ if(old>=0){
+  var saved=JSON.parse(rows[old][18]);if(mwEventRequestIdentity_(saved)!==JSON.stringify(p))throw Error('receipt_mismatch');
+  if(rows[old][13]!=='נקלט')mwEventProcess_(log,old+2,saved);
+  return mwEventResponse_(log,old+2,saved);
+ }
+ var event=mwRegistrationEvent_(p.registrationEventId,p.registrationEventGrantId);
+ if(event.grade!==p.grade||event.study_level!==p.level)throw Error('study_mismatch');
+ p=Object.assign({},p,{eventSnapshot:event,checkout:mwEventCheckoutTerms_(event)});
+ if(p.invitationId){var terms=mwInvitationTerms_(p.invitationId);if(terms.amount!==p.checkout.amount||terms.url!==p.checkout.url||terms.method!=='grow')throw Error('event_changed');}
+ var row=Math.max(2,log.getLastRow()+1);if(row>log.getMaxRows())log.insertRowsAfter(log.getMaxRows(),500);
+ log.getRange(row,1,1,19).setValues([[p.id,new Date(),mwSafe_(event.title),mwSafe_(p.first),mwSafe_(p.last),mwSafe_(p.school),p.grade,p.level,mwSafe_(p.parent),p.phone,p.studentPhone,mwSafe_(p.email),mwSafe_(p.notes),'ממתין','','','',p.registrationEventId,JSON.stringify(p)]]);
+ SpreadsheetApp.flush();mwEventProcess_(log,row,p);return mwEventResponse_(log,row,p);
+}
+function mwEventProcess_(log,row,p){
+ var result=mwEventRpc_('import_marathon_registration',{p:{source_key:'receipt:'+p.id,registration_event_id:p.registrationEventId,registration_event_grant_id:p.registrationEventGrantId||null,student_first_name:p.first,student_last_name:p.last,parent_name:p.parent,parent_phone:p.phone,school_name:p.school,grade:p.grade,study_level:p.level,quoted_agorot:Math.round(p.checkout.amount*100),agreed_method:'grow',received_agorot:0,status:'pending',attendance:'pending',notes:p.notes}});
+ if(!result.id||result.registration_event_id!==p.registrationEventId||result.quoted_agorot!==Math.round(p.checkout.amount*100))throw Error('event_import_unconfirmed');
+ mwResult_(log,row,'נקלט',result.duplicate?'הרשמה קיימת לאותו מרתון; המקור נשמר ללא חיוב נוסף':'','',result.id,p.registrationEventId);
+}
+function mwEventResponse_(log,row,p){
+ if(log.getRange(row,1,1,19).getValues()[0][13]!=='נקלט')return{ok:true,paymentStatus:'pending'};
+ try{
+  var state=mwEventRpc_('marathon_checkout_state',{source:'receipt:'+p.id});
+  if(!state.known||state.registration_event_id!==p.registrationEventId)return{ok:true,paymentStatus:'pending'};
+  if(state.paid)return{ok:true,paymentStatus:'recorded'};
+  if(state.blocked||state.quoted_agorot!==Math.round(p.checkout.amount*100)||state.checkout_code!==p.checkout.revision||state.remaining_agorot!==state.quoted_agorot)return{ok:true,paymentStatus:'review'};
+  // Recheck availability/grant before exposing an unpaid checkout. Do not use
+  // a prior event's payment or silently charge the full amount after part-pay.
+  var event=mwRegistrationEvent_(p.registrationEventId,p.registrationEventGrantId),terms=mwEventCheckoutTerms_(event);
+  if(terms.revision!==p.checkout.revision||terms.amount!==p.checkout.amount||terms.url!==p.checkout.url)return{ok:true,paymentStatus:'review'};
+  return{ok:true,paymentStatus:'ready',payment:{amount:terms.amount,url:terms.url}};
+ }catch(e){return{ok:true,paymentStatus:'pending'};}
 }
 function mwCrmSnapshot_(r,row,sources){
  var receipt=mwReceipt_(r),source=sources[receipt],p=source&&source.payload||{},name=String(r[3]||'').trim();

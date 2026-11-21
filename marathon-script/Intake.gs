@@ -20,7 +20,9 @@ function mwNormalize_(a){
   p.kind='interest';p.city=a.school_name==='אחר'?mwText_(a.school_city||'',80):p.school.split(', ').slice(1).join(', ');
   if(!v2&&!p.city)throw Error('invalid_city');p.examDate=mwText_(a.exam_date||'',10);if(v2)p.version=2;
   if(p.examDate&&(!/^\d{4}-\d{2}-\d{2}$/.test(p.examDate)||!isFinite(Date.parse(p.examDate+'T12:00:00Z'))||new Date(p.examDate+'T12:00:00Z').toISOString().slice(0,10)!==p.examDate))throw Error('invalid_exam_date');
- }else if(typeof p.price!=='number'||!isFinite(p.price)||p.price<0)throw Error('invalid_price');return p;
+ }else if(typeof p.price!=='number'||!isFinite(p.price)||p.price<0)throw Error('invalid_price');
+ if(a.registration_event_id){if(!v2)throw Error('invalid_version');p.registrationEventId=mwCommandId_(a.registration_event_id);}
+ return p;
 }
 function mwEvents_(ss){var today=Utilities.formatDate(new Date(),'Asia/Jerusalem','yyyy-MM-dd');return ss.getSheetByName('מרתונים').getRange('A5:I1000').getValues().filter(function(r){return r[7]&&r[0]&&r[1] instanceof Date&&Utilities.formatDate(r[1],'Asia/Jerusalem','yyyy-MM-dd')>=today&&r[5]==='הרשמה פתוחה'&&typeof r[4]==='number'&&isFinite(r[4])&&r[4]>=0;});}
 function mwCatalog_(ss){return mwCampaignRows_(ss).map(function(r){return{id:String(r[7]),name:String(r[0]),price:r[4]};});}
@@ -50,6 +52,7 @@ function doPost(e){
  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 function mwIntake_(ss,p){
+ if(p.registrationEventId){var eventResult=mwEventIntake_(ss,p);return Object.assign(eventResult,{eventTitle:mwRegistrationTitleFromReceipt_(ss,p.id)});}
  var log=mwEnsureLog_(ss),records=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],old=records.findIndex(function(r){return r[0]===p.id;});
  if(old>=0){
   var saved=JSON.parse(records[old][18]);if(mwRequestIdentity_(saved)!==JSON.stringify(p))throw Error('receipt_mismatch');
@@ -68,6 +71,7 @@ function mwIntake_(ss,p){
 function mwResult_(log,row,status,detail,participantRow,uid,event){log.getRange(row,14,1,5).setValues([[status,mwSafe_(detail),participantRow,uid,event]]);}
 function mwReview_(message){var e=Error(message);e.review=true;throw e;}
 function mwProcess_(ss,log,lr,p){
+ if(p.registrationEventId)return mwEventProcess_(log,lr,p);
  try{
   var sh=ss.getSheetByName('משתתפי מרתונים'),rows=sh.getRange('A5:X1000').getValues();
   var receipt=rows.findIndex(function(r){return String(r[16]).indexOf('טופס מרתון: '+p.id)>=0;});
@@ -114,4 +118,7 @@ function mwInvitation_(token){if(typeof token!=='string'||! /^[a-f0-9]{64}$/.tes
 function mwTokenHash_(token){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,token).map(function(b){return('0'+((b+256)%256).toString(16)).slice(-2);}).join('');}
 function mwInvitationTerms_(id){var p=JSON.parse(PropertiesService.getScriptProperties().getProperty('MW_INV_'+id)||'null');if(!p||p.revoked||Date.now()>p.expires)throw Error('invalid_invitation');return{amount:p.amount,url:p.url,method:p.method,revision:p.id};}
 
-function mwBindInvitation_(p,token){var invitation=mwInvitation_(token);if(p.version!==2||mwName_(p.first)!==mwName_(invitation.first)||mwName_(p.last)!==mwName_(invitation.last)||p.phone!==invitation.phone)throw Error("invitation_identity");p.id=invitation.id;p.invitationId=invitation.id;return p;}
+function mwBindInvitation_(p,token){var invitation=mwInvitation_(token);if(p.version!==2||mwName_(p.first)!==mwName_(invitation.first)||mwName_(p.last)!==mwName_(invitation.last)||p.phone!==invitation.phone)throw Error("invitation_identity");
+ if(invitation.registrationEventId){if(p.registrationEventId&&p.registrationEventId!==invitation.registrationEventId)throw Error('invitation_identity');p.registrationEventId=invitation.registrationEventId;p.registrationEventGrantId=invitation.registrationEventGrantId||null;}
+ else if(p.registrationEventId)throw Error('invalid_invitation');
+ p.id=invitation.id;p.invitationId=invitation.id;return p;}
