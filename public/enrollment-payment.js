@@ -27,7 +27,7 @@
     }
     var line = document.createElement('p'); line.className='checkout-first-amount';
     var amount = (terms.initial_agorot / 100).toLocaleString('he-IL', {style:'currency',currency:'ILS'});
-    line.textContent = (family ? 'תשלום חד־פעמי לילד המצטרף — יתרת חודש ' : 'תשלום עבור חודש ') + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. תשלום הניסיון נפרד.';
+    line.textContent = (family ? 'תשלום חד־פעמי לילד המצטרף — יתרת חודש ' : 'תשלום עבור חודש ') + terms.service_month.slice(0,7).split('-').reverse().join('/') + ': ' + amount + '. הסכום לפי תנאי ההרשמה שסוכמו.';
     target.appendChild(line);
     if (terms.monthly_method === 'cash') {
       var trial = terms.unpaid_trial_agorot || 0;
@@ -39,7 +39,7 @@
     }
     if (terms.initial_lesson_agorot != null) {
       var breakdown = document.createElement('p');
-      breakdown.textContent = family ? 'מחושב בהתאם למספר השיעורים שנותרו בחודש.' : 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. שיעור הניסיון אינו כלול.';
+      breakdown.textContent = family ? 'מחושב בהתאם למספר השיעורים שנותרו בחודש.' : 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. הסכום לפי תנאי ההרשמה שסוכמו.';
       target.appendChild(breakdown);
     }
     if (family) {

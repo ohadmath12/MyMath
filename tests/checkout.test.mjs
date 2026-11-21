@@ -14,3 +14,26 @@ console.log('PASS durable checkout: disabled fail closed, immutable retry, unkno
 terms.initial_agorot=48000;paid=true;let prepaid=ctx.stageCheckout_({...input,client_submission_id:randomUUID()});assert.equal(prepaid.payment_url,'');assert.equal(prepaid.state,'completed');console.log('PASS already-paid registration never returns another checkout link');
 
 assert.equal(ctx.checkoutStatus_({checkout_token:prepaid.checkout_token}).payment_confirmed,true);terms.monthly_method='cash';paid=false;let cash=ctx.stageCheckout_({...input,lead_token:'e'.repeat(64),client_submission_id:randomUUID()});assert.equal(cash.state,'completed');assert.equal(ctx.checkoutStatus_({checkout_token:cash.checkout_token}).payment_confirmed,false);console.log('PASS cash completion remains distinct from provider-confirmed payment');
+// Cash form persisted before a transient registration-save failure.
+terms.monthly_method='cash';terms.unpaid_trial_agorot=0;paid=false;
+const originalSave=ctx.saveRegistration;ctx.saveRegistration=()=>({ok:false});
+const pendingCashInput={...input,lead_token:'d'.repeat(64),client_submission_id:randomUUID()};
+assert.throws(()=>ctx.stageCheckout_(pendingCashInput),/save_failed/);
+ctx.saveRegistration=originalSave;
+const trialChanged=ctx.checkoutResume_({kind:'lead',token:pendingCashInput.lead_token}).checkouts[0];
+const trialRow=rows.length;const savesBeforeTrialChange=saves;
+terms.unpaid_trial_agorot=16000;
+ctx.checkoutProcessRow_(trialRow);
+assert.equal(ctx.checkoutStatus_({checkout_token:trialChanged.checkout_token}).state,'terms_changed');
+assert.equal(saves,savesBeforeTrialChange);
+console.log('PASS cash draft after transient failure invalidates unpaid-trial changes before saveRegistration');
+
+// An old snapshot missing the trial amount is ambiguous even when today's amount is zero.
+terms.unpaid_trial_agorot=0;ctx.saveRegistration=()=>({ok:false});
+const legacyInput={...input,lead_token:'c'.repeat(64),client_submission_id:randomUUID()};
+assert.throws(()=>ctx.stageCheckout_(legacyInput),/save_failed/);ctx.saveRegistration=originalSave;
+const legacyRow=rows.length,legacyFile=rows[legacyRow-1][3];
+const legacyDraft=JSON.parse(files.get(legacyFile));const historicalTerms=JSON.parse(legacyDraft.terms);delete historicalTerms.unpaid_trial_agorot;legacyDraft.terms=JSON.stringify(historicalTerms);files.set(legacyFile,JSON.stringify(legacyDraft));
+const beforeLegacy=saves;ctx.checkoutProcessRow_(legacyRow);
+assert.equal(rows[legacyRow-1][4],'terms_changed');assert.equal(saves,beforeLegacy);
+console.log('PASS legacy missing trial snapshot held even at current zero; no silent assumption about signed amount');
