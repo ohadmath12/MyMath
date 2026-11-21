@@ -42,4 +42,16 @@ assert.throws(()=>ctx.mwBindInvitation_({...p,registrationEventId:other},'synthe
 assert.throws(()=>ctx.mwBindInvitation_({...p,phone:'0500000001'},'synthetic'),/invitation_identity/);
 props['MW_CHECKOUT_'+revision]=JSON.stringify({...settings,amount:150});
 assert.throws(()=>ctx.mwEventCheckoutTerms_({checkout_code:revision,quoted_agorot:10000}),/event_unavailable/);
+// The manager creation path validates event/price/checkout before storing a
+// capability; retries return the same invitation and never make a charge.
+props['MW_CHECKOUT_'+revision]=JSON.stringify(settings);props.MW_PAYMENT_SETTINGS_V1=JSON.stringify(settings);
+ctx.PropertiesService.getScriptProperties=()=>({getProperty:k=>props[k],getProperties:()=>({...props}),setProperty:(k,v)=>props[k]=v});
+ctx.LockService={getScriptLock:()=>({waitLock(){},releaseLock(){}})};
+let sequence=100;ctx.Utilities={getUuid:()=>uuid(sequence++),DigestAlgorithm:{SHA_256:'sha256'},computeDigest:(_,s)=>Array.from(require('node:crypto').createHash('sha256').update(s).digest())};
+const command={commandId:uuid(40),first:p.first,last:p.last,phone:p.phone,amount:100,method:'grow',url:'',confirmed:true,registration_event_id:event,registration_event_grant_id:grant};
+const invite=ctx.mwCreateInvitation_(command);assert.match(invite.url,/#invite=[a-f0-9]{64}$/);
+assert.equal(ctx.mwCreateInvitation_(command).url,invite.url);
+const stored=JSON.parse(props['MW_INV_'+command.commandId]);assert.equal(stored.registrationEventGrantId,grant);assert.equal(stored.registrationEventId,event);
+assert.throws(()=>ctx.mwCreateInvitation_({...command,commandId:uuid(41),amount:150,url:settings.url}),/תואמים/);
+assert.throws(()=>ctx.mwCreateInvitation_({...command,commandId:uuid(42),registration_event_grant_id:null}),/event_unavailable/);
 console.log('PASS: event isolation, immutable receipts, SQL alias use, durable retry, private identity binding, partial-payment protection and checkout config validation');
