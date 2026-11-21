@@ -1,5 +1,13 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import {handleRequest} from '../src/worker.mjs';
 const env={MARATHON_SCRIPT_URL:'https://example.test/marathon',MARATHON_GATEWAY_SECRET:'secret',TURNSTILE_SECRET:'ts',TURNSTILE_EXPECTED_HOSTNAMES:'ohadmath12.github.io',REGISTRATION_RATE_LIMITER:{limit:async()=>({success:true})}};
+test('event ID passes but private grant and server snapshots cannot be forged',async()=>{
+ const r=await handleRequest(req({turnstile_token:'t',form_version:2,registration_event_id:'event',registration_event_grant_id:'forged',registrationEventGrantId:'forged',eventSnapshot:{},received_agorot:10000}),env,async(url,opts)=>{
+  if(url.includes('siteverify'))return Response.json({success:true,hostname:'ohadmath12.github.io',action:'marathon'});
+  const p=JSON.parse(opts.body).payload;assert.equal(p.registration_event_id,'event');
+  for(const field of ['registration_event_grant_id','registrationEventGrantId','eventSnapshot','received_agorot'])assert.equal(p[field],undefined);
+  return Response.json({ok:true,paymentStatus:'pending'});
+ });assert.equal(r.status,200);
+});
 function req(body){return new Request('https://worker.test/api/marathon',{method:'POST',headers:{Origin:'https://ohadmath12.github.io','Content-Type':'text/plain'},body:JSON.stringify(body)});}
 test('catalog only returns public event fields',async()=>{const r=await handleRequest(new Request('https://worker.test/api/marathons'),env,async(url,opts)=>{assert.equal(JSON.parse(opts.body).payload.operation,'marathon_catalog');return Response.json({ok:true,events:[{id:'m1',name:'אירוע',price:80,phone:'private',notes:'private'}]});});assert.deepEqual(await r.json(),{ok:true,events:[{id:'m1',name:'אירוע',price:80}]});});
 test('marathon route verifies correct challenge and strips forged operations',async()=>{let calls=0;const r=await handleRequest(req({turnstile_token:'token',client_submission_id:'test',event_id:'m1',quoted_price:80,operation:'privileged',gateway_secret:'forged',status:'paid'}),env,async(url,opts)=>{calls++;if(url.includes('siteverify'))return Response.json({success:true,hostname:'ohadmath12.github.io',action:'marathon'});const data=JSON.parse(opts.body);assert.equal(data.gateway_secret,'secret');assert.equal(data.payload.operation,'marathon_intake');assert.equal(data.payload.status,undefined);assert.equal(data.payload.gateway_secret,undefined);return Response.json({ok:true,student_id:'private'});});assert.equal(calls,2);assert.deepEqual(await r.json(),{ok:true});});

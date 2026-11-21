@@ -1,4 +1,4 @@
-const FIELDS=['invitation_token','form_version','request_kind','school_city','exam_date','client_submission_id','event_id','quoted_price','student_first_name','student_last_name','school_name','school_other','class_name','units','parent_name','parent_phone','student_phone','parent_email','notes'];
+const FIELDS=['registration_event_id','invitation_token','form_version','request_kind','school_city','exam_date','client_submission_id','event_id','quoted_price','student_first_name','student_last_name','school_name','school_other','class_name','units','parent_name','parent_phone','student_phone','parent_email','notes'];
 function safePayment(value){
  if(!value||typeof value.amount!=='number'||!Number.isFinite(value.amount)||value.amount<=0||value.amount>10000||typeof value.url!=='string'||value.url.length>2048)throw Error('invalid_payment');
  const url=new URL(value.url);
@@ -33,7 +33,7 @@ export async function marathonRequest(request,env,fetchImpl,{json,validateTurnst
   if(!catalog){
    if(payload.form_version!==2)return json({ok:true},200,request);
    const paymentStatus=['ready','recorded','pending','review','cash'].includes(result.paymentStatus)?result.paymentStatus:'pending';
-   return json({ok:true,paymentStatus,...(paymentStatus==='cash'&&Number.isFinite(result.amount)&&result.amount>0?{amount:result.amount}:{}),...(paymentStatus==='ready'?{payment:safePayment(result.payment)}:{})},200,request);
+   return json({ok:true,paymentStatus,...(typeof result.eventTitle==='string'&&result.eventTitle.length<=160?{eventTitle:result.eventTitle}:{}),...(paymentStatus==='cash'&&Number.isFinite(result.amount)&&result.amount>0?{amount:result.amount}:{}),...(paymentStatus==='ready'?{payment:safePayment(result.payment)}:{})},200,request);
   }
   if(!Array.isArray(result.events))throw Error();
   const events=result.events.map(e=>{if(typeof e.id!=='string'||typeof e.name!=='string'||typeof e.price!=='number'||!Number.isFinite(e.price)||e.price<0)throw Error();return{id:e.id,name:e.name,price:e.price};});
