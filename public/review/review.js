@@ -16,9 +16,10 @@
     if ($('form').value === 'individual' && $('route').value === 'recurring') {
       // Synthetic example; wording mirrors the new-registration render path.
 
-      return `<section id="enrollment-checkout" class="enrollment-payment-terms"><h3 class="checkout-first-amount">יתרת חודש — 480 ₪</h3><p>מחיר חודשי להמשך — 650 ₪ החל מ־10/12/2026.</p></section><div class="submit-row"><button type="button" id="submit-btn" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button></div>`;
+      return `<section id="enrollment-checkout" class="enrollment-payment-terms"><h3 class="checkout-first-amount">יתרת חודש — 480 ₪</h3><p>מחושב בהתאם למספר השיעורים שנותרו בחודש.</p><p>מחיר חודשי להמשך — 650 ₪ החל מ־10/12/2026.</p></section><div class="submit-row"><button type="button" id="submit-btn" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button></div>`;
     }
 
+    if ($('form').value === 'sibling' && !cash) return `<section id="enrollment-checkout" class="enrollment-payment-terms"><h3>יתרת חודש — 450 ₪</h3><p>מחושב בהתאם למספר השיעורים שנותרו בחודש.</p><p>תשלום חד־פעמי עבור האח המצטרף.</p><p>מהחודש הבא המחיר החודשי לשני הילדים יחד יתעדכן ל־1,200 ₪, החל מ־10/12/2026.</p></section><button type="button" class="btn btn-primary">לתשלום ולהשלמת ההרשמה</button>`;
     const text=cash?'מסלול מזומן: השלמת פרטים וחתימה. התשלום מתואם בנפרד עם המרכז.':$('form').value==='sibling'?'תשלום חד־פעמי עבור השיעורים שנותרו לאח המצטרף.':$('route').value==='advance'?'התשלום הראשון עבור החודש הבא במלואו.':family?'תשלום משותף לשני הילדים, בהתאם לתנאים האישיים.':'התשלום הראשון עבור החודש שנבחר, בהתאם לתנאים האישיים.';
     return card('תשלום והשלמת הרשמה',text,cash?'השלמת ההרשמה':'לתשלום ולהשלמת ההרשמה');
   }

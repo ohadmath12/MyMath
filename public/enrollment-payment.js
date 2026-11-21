@@ -15,6 +15,7 @@
     if (!paymentButton && !family && !terms.new_siblings) {
       var balance = document.createElement('h3'); balance.className='checkout-first-amount';
       balance.textContent=(terms.initial_agorot===100 && recurringInitial ? 'חיוב ראשון — ' : 'יתרת חודש — ')+(terms.initial_agorot/100).toLocaleString('he-IL')+' ₪'; target.appendChild(balance);
+      if (terms.initial_lesson_agorot != null && !(terms.initial_agorot===100 && recurringInitial)) { var calculation=document.createElement('p'); calculation.textContent='מחושב בהתאם למספר השיעורים שנותרו בחודש.'; target.appendChild(calculation); }
       if (terms.monthly_agorot) { var continuation=document.createElement('p'); continuation.textContent='מחיר חודשי להמשך — '+(terms.monthly_agorot/100).toLocaleString('he-IL')+' ₪'+(terms.recurring_starts_on?' החל מ־'+terms.recurring_starts_on.split('-').reverse().join('/'):'')+'.'; target.appendChild(continuation); }
       if (terms.monthly_method==='cash') { var cashNote=document.createElement('p');cashNote.textContent='תשלום במזומן.';target.appendChild(cashNote);if(terms.unpaid_trial_agorot>0){var trialNote=document.createElement('p');trialNote.textContent='ניסיון שטרם שולם — '+(terms.unpaid_trial_agorot/100).toLocaleString('he-IL')+' ₪. סה״כ לתשלום — '+((terms.initial_agorot+terms.unpaid_trial_agorot)/100).toLocaleString('he-IL')+' ₪.';target.appendChild(trialNote);}}
       return;
@@ -38,11 +39,11 @@
     }
     if (terms.initial_lesson_agorot != null) {
       var breakdown = document.createElement('p');
-      breakdown.textContent = 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. שיעור הניסיון אינו כלול.';
+      breakdown.textContent = family ? 'מחושב בהתאם למספר השיעורים שנותרו בחודש.' : 'מחיר מיוחד לחודש הראשון בלבד: ' + terms.initial_lesson_count + ' שיעורים × ' + (terms.initial_lesson_agorot/100).toLocaleString('he-IL') + ' ₪ = ' + amount + '. שיעור הניסיון אינו כלול.';
       target.appendChild(breakdown);
     }
     if (family) {
-      var familyMonthly = document.createElement('p'); familyMonthly.textContent = 'החל מ־' + terms.recurring_starts_on.split('-').reverse().join('/') + ': 600 ₪ לכל ילד — 1,200 ₪ לחודש לשני הילדים יחד. המרכז יעדכן את הוראת הקבע הקיימת ב־Grow. התשלום החד־פעמי כאן אינו מקים הוראת קבע נוספת.'; target.appendChild(familyMonthly);
+      var familyMonthly = document.createElement('p'); familyMonthly.textContent = 'מהחודש הבא המחיר החודשי לשני הילדים יחד יתעדכן ל־1,200 ₪, החל מ־' + terms.recurring_starts_on.split('-').reverse().join('/') + '. התשלום כעת הוא חד־פעמי עבור האח המצטרף.'; target.appendChild(familyMonthly);
     }
     if (terms.monthly_agorot && !family) {
       var monthly = document.createElement('p');
