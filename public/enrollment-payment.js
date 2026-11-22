@@ -16,7 +16,7 @@
       var balance = document.createElement('h3'); balance.className='checkout-first-amount';
       balance.textContent=(terms.initial_agorot===100 && recurringInitial ? 'חיוב ראשון — ' : 'יתרת חודש — ')+(terms.initial_agorot/100).toLocaleString('he-IL')+' ₪'; target.appendChild(balance);
       if (terms.initial_lesson_agorot != null && !(terms.initial_agorot===100 && recurringInitial)) { var calculation=document.createElement('p'); calculation.textContent='מחושב בהתאם למספר השיעורים שנותרו בחודש.'; target.appendChild(calculation); }
-      if (terms.monthly_agorot) { var continuation=document.createElement('p'); continuation.textContent='מחיר חודשי להמשך — '+(terms.monthly_agorot/100).toLocaleString('he-IL')+' ₪'+(terms.recurring_starts_on?' החל מ־'+terms.recurring_starts_on.split('-').reverse().join('/'):'')+'.'; target.appendChild(continuation); }
+      if (terms.monthly_agorot) { var continuation=document.createElement('p'); continuation.textContent='מהחודש הבא — '+(terms.monthly_agorot/100).toLocaleString('he-IL')+' ₪ בחודש'+(terms.monthly_method==='cash'?' במזומן':' בהוראת קבע')+(terms.recurring_starts_on?', החל מ־'+terms.recurring_starts_on.split('-').reverse().join('/'):'')+'.'; target.appendChild(continuation); }
       if (terms.monthly_method==='cash') { var cashNote=document.createElement('p');cashNote.textContent='תשלום במזומן.';target.appendChild(cashNote);if(terms.unpaid_trial_agorot>0){var trialNote=document.createElement('p');trialNote.textContent='ניסיון שטרם שולם — '+(terms.unpaid_trial_agorot/100).toLocaleString('he-IL')+' ₪. סה״כ לתשלום — '+((terms.initial_agorot+terms.unpaid_trial_agorot)/100).toLocaleString('he-IL')+' ₪.';target.appendChild(trialNote);}}
       return;
     }
