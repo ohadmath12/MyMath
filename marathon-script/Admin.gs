@@ -144,13 +144,15 @@ function mwEventCheckoutTerms_(e){
 }
 function mwEventRequestIdentity_(p){var copy=Object.assign({},p);delete copy.checkout;delete copy.eventSnapshot;return JSON.stringify(copy);}
 function mwRegistrationTitleFromReceipt_(ss,id){var log=mwEnsureLog_(ss),rows=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],row=rows.find(function(r){return r[0]===id;});return row?JSON.parse(row[18]).eventSnapshot.title:'';}
-function mwEventIntake_(ss,p){
+function mwEventIntake_(ss,p,a){
  var log=mwEnsureLog_(ss),rows=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],old=rows.findIndex(function(r){return r[0]===p.id;});
  if(old>=0){
   var saved=JSON.parse(rows[old][18]);if(mwEventRequestIdentity_(saved)!==JSON.stringify(p))throw Error('receipt_mismatch');
   if(rows[old][13]!=='נקלט')mwEventProcess_(log,old+2,saved);
   return mwEventResponse_(log,old+2,saved);
  }
+ p.parent=ParentNameContract.normalize({parent_name:p.parent});
+ if(p.invitationId)mwReturningSubmission_(a||{});
  var event=mwRegistrationEvent_(p.registrationEventId,p.registrationEventGrantId);
  if(event.grade!==p.grade||event.study_level!==p.level)throw Error('study_mismatch');
  p=Object.assign({},p,{eventSnapshot:event,checkout:mwEventCheckoutTerms_(event)});

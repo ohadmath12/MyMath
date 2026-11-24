@@ -24,7 +24,8 @@ ctx.mwEventRpc_=(name,args)=>{
  if(name==='marathon_checkout_state')return{known:true,...records.get(args.source),paid,blocked,remaining_agorot:partPaid?5000:10000,checkout_code:revision};
  throw Error(name);
 };
-const p={id:uuid(10),first:'Test',last:'Pupil',parent:'Parent',phone:'0500000000',school:'',grade:'י',level:'4 יח״ל',studentPhone:'',email:'',notes:'',event:'',kind:'interest',version:2,registrationEventId:event,registrationEventGrantId:grant};
+const p={id:uuid(10),first:'Test',last:'Pupil',parent:'Parent Example',phone:'0500000000',school:'',grade:'י',level:'4 יח״ל',studentPhone:'',email:'',notes:'',event:'',kind:'interest',version:2,registrationEventId:event,registrationEventGrantId:grant};
+assert.throws(()=>ctx.mwEventIntake_({},{...p,parent:'Parent'}),/parent_full_name_required/);
 let result=ctx.mwEventIntake_({},p);assert.equal(result.paymentStatus,'ready');assert.equal(rows.length,1);assert.equal(identities.size,1);
 ctx.mwEventIntake_({},p);assert.equal(imports,1);assert.equal(rows.length,1);
 ctx.mwEventIntake_({},{...p,id:uuid(11)});assert.equal(rows.length,2);assert.equal(identities.size,1);

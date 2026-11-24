@@ -10,6 +10,7 @@ function mwSafe_(s){return /^[=+@-]/.test(String(s))?"'"+s:s;}
 function mwName_(s){return String(s).normalize('NFKC').trim().replace(/\s+/g,' ').replace(/[׳״'"\u200e\u200f]/g,'').toLowerCase();}
 function mwNormalize_(a){
  if(!a||typeof a!=='object'||Array.isArray(a))throw Error('invalid_payload');
+ if(a.parent_first_name!==undefined||a.parent_last_name!==undefined||a.parent_name_version!==undefined)a.parent_name=ParentNameContract.normalize(a);
  var interest=a.request_kind==='interest',v2=interest&&a.form_version===2;if(a.request_kind&&!interest)throw Error('invalid_kind');if(a.form_version!==undefined&&!v2)throw Error('invalid_version');
  var p={id:mwText_(a.client_submission_id,64),event:interest?'':mwText_(a.event_id,80),first:mwText_(a.student_first_name,60),last:mwText_(a.student_last_name,60),school:mwText_(a.school_name,120),grade:mwText_(a.class_name,20),level:mwText_(a.units,40),parent:mwText_(a.parent_name,100),phone:mwPhone_(a.parent_phone,false),studentPhone:mwPhone_(a.student_phone,true),email:mwText_(a.parent_email||'',150),notes:mwText_(a.notes||'',1000),price:interest?'':a.quoted_price};
  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.id)||(!interest&&!p.event)||!p.first||!p.last||!p.parent)throw Error('invalid_required');
@@ -41,24 +42,28 @@ function doPost(e){
   var body=JSON.parse(e.postData.contents),secret=PropertiesService.getScriptProperties().getProperty('MARATHON_GATEWAY_SECRET');
   if(body&&body.payload&&body.payload.operation==='marathon_personal_links')return ContentService.createTextOutput(JSON.stringify(mwCrmPersonalLinks_(body.payload))).setMimeType(ContentService.MimeType.JSON);
   if(!secret||!body||body.gateway_secret!==secret||!body.payload)throw Error('unauthorized');
-  var ss=SpreadsheetApp.openById(MW_BOOK),a=body.payload;
+  var a=body.payload;
+  if(a.operation==='marathon_returning_context')return ContentService.createTextOutput(JSON.stringify({ok:true,context:mwReturningContext_(a.invitation_token)})).setMimeType(ContentService.MimeType.JSON);
+  if(a.operation==='marathon_returning_resume')return ContentService.createTextOutput(JSON.stringify(mwReturningResume_(a.invitation_token))).setMimeType(ContentService.MimeType.JSON);
+  var ss=SpreadsheetApp.openById(MW_BOOK);
   if(a.operation==='marathon_catalog')result={ok:true,events:mwCatalog_(ss)};
   else if(a.operation==='marathon_intake'){
    var p=mwNormalize_(a),lock=LockService.getScriptLock();lock.waitLock(20000);
-   try{if(a.invitation_token)p=mwBindInvitation_(p,a.invitation_token);result=mwIntake_(ss,p);}finally{lock.releaseLock();}
+   try{if(a.invitation_token)p=mwBindInvitation_(p,a.invitation_token);result=mwIntake_(ss,p,a);}finally{lock.releaseLock();}
   }else throw Error('invalid_operation');
  }catch(error){console.error('Marathon intake: '+String(error.message));result={ok:false,code:['event_changed','study_mismatch','invalid_invitation','invitation_identity'].indexOf(error.message)>=0?error.message:'intake_failed'};}
  if(result&&result.ok&&typeof mwCrmSyncSafely_==='function')mwCrmSyncSafely_();
  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
-function mwIntake_(ss,p){
- if(p.registrationEventId){var eventResult=mwEventIntake_(ss,p);return Object.assign(eventResult,{eventTitle:mwRegistrationTitleFromReceipt_(ss,p.id)});}
+function mwIntake_(ss,p,a){
+ if(p.registrationEventId){var eventResult=mwEventIntake_(ss,p,a);return Object.assign(eventResult,{eventTitle:mwRegistrationTitleFromReceipt_(ss,p.id)});}
  var log=mwEnsureLog_(ss),records=log.getLastRow()>1?log.getRange(2,1,log.getLastRow()-1,19).getValues():[],old=records.findIndex(function(r){return r[0]===p.id;});
  if(old>=0){
   var saved=JSON.parse(records[old][18]);if(mwRequestIdentity_(saved)!==JSON.stringify(p))throw Error('receipt_mismatch');
   if(['נקלט','כבר רשום','נדרש בירור'].indexOf(records[old][13])<0)mwProcess_(ss,log,old+2,saved);
   return mwIntakeResponse_(ss,log,old+2,saved);
  }
+ ParentNameContract.normalize({parent_name:p.parent}); // New receipt only; historical exact replay remains untouched.
  var interest=p.kind==='interest',events=interest?[]:mwCampaignRows_(ss).filter(function(r){return String(r[7])===p.event;});
  if(!interest&&events.length===1&&(events[0][2]!==p.grade||(events[0][6]&&events[0][6]!==p.school)))throw Error('study_mismatch');
  if(!interest&&(events.length!==1||events[0][4]!==p.price))throw Error('event_changed');
@@ -122,3 +127,48 @@ function mwBindInvitation_(p,token){var invitation=mwInvitation_(token);if(p.ver
  if(invitation.registrationEventId){if(p.registrationEventId&&p.registrationEventId!==invitation.registrationEventId)throw Error('invitation_identity');p.registrationEventId=invitation.registrationEventId;p.registrationEventGrantId=invitation.registrationEventGrantId||null;}
  else if(p.registrationEventId)throw Error('invalid_invitation');
  p.id=invitation.id;p.invitationId=invitation.id;return p;}
+
+(function(root){
+ function clean(v){return typeof v==='string'?v.normalize('NFC').trim().replace(/\s+/g,' '):'';}
+ function part(v){var s=clean(v);if(!s||s.length>60||!/[\p{L}]/u.test(s)||/[\p{Cc}\p{Cf}<>]/u.test(s))throw Error('invalid_parent_name');return s;}
+ function normalize(p){
+  var split=p.parent_name_version===2||p.parent_first_name!==undefined||p.parent_last_name!==undefined;
+  var full;
+  if(split){var first=part(p.parent_first_name),last=part(p.parent_last_name);full=first+' '+last;}
+  else {full=clean(p.parent_name);if(!full||full.length>80||!/^\S+\s+\S/.test(full)||/[\p{Cc}\p{Cf}<>]/u.test(full))throw Error('parent_full_name_required');}
+  if(full.length>80)throw Error('invalid_parent_name');
+  return full;
+ }
+ root.ParentNameContract={normalize:normalize};
+})(typeof module==='object'?module.exports:globalThis);
+
+// Read-only: no Sheet access, queue sync, checkout creation or status mutation.
+function mwReturningContext_(token){
+ var inv=mwInvitation_(token);
+ if(!inv.registrationEventId)return{legacy:true};
+ if(!inv.registrationEventGrantId)throw Error('invalid_invitation');
+ var c=mwEventRpc_('marathon_returning_context',{event_id:inv.registrationEventId,grant_id:inv.registrationEventGrantId});
+ if(!c||!c.event||!c.student||c.event.id!==inv.registrationEventId||mwName_(c.student.first)!==mwName_(inv.first)||mwName_(c.student.last)!==mwName_(inv.last)||mwPhone_(c.student.parent_phone,false)!==inv.phone)throw Error('invitation_identity');
+ return c;
+}
+function mwReturningSubmission_(a){
+ var c=mwReturningContext_(a.invitation_token),e=c.event;
+ if(c.can_submit!==true||c.payment_status!=='unregistered')throw Error('event_changed');
+ if(a.registration_event_id!==e.id||a.expected_revision!==e.revision||a.expected_agorot!==e.quoted_agorot)throw Error('event_changed');
+ if(mwName_(a.student_first_name)!==mwName_(c.student.first)||mwName_(a.student_last_name)!==mwName_(c.student.last)||mwPhone_(a.parent_phone,false)!==mwPhone_(c.student.parent_phone,false)||a.class_name!==e.grade||a.units!==e.study_level)throw Error('invitation_identity');
+}
+
+// Resume reads an existing immutable receipt; never creates a log/registration.
+function mwReturningResume_(token){
+ var c=mwReturningContext_(token);
+ if(c.legacy)throw Error('invalid_invitation');
+ if(c.payment_status==='recorded')return{ok:true,paymentStatus:'recorded',eventTitle:c.event.title};
+ if(c.payment_status!=='pending'||c.can_resume!==true)return{ok:true,paymentStatus:'review',eventTitle:c.event.title};
+ var inv=mwInvitation_(token),ss=SpreadsheetApp.openById(MW_BOOK),log=ss.getSheetByName(MW_LOG);
+ if(!log||log.getLastRow()<2)return{ok:true,paymentStatus:'review',eventTitle:c.event.title};
+ var rows=log.getRange(2,1,log.getLastRow()-1,19).getValues(),index=rows.findIndex(function(r){return r[0]===inv.id;});
+ if(index<0)return{ok:true,paymentStatus:'review',eventTitle:c.event.title};
+ var saved=JSON.parse(rows[index][18]);
+ if(saved.invitationId!==inv.id||saved.registrationEventId!==c.event.id||saved.registrationEventGrantId!==inv.registrationEventGrantId||mwName_(saved.first)!==mwName_(inv.first)||mwName_(saved.last)!==mwName_(inv.last)||saved.phone!==inv.phone)throw Error('invitation_identity');
+ return Object.assign(mwEventResponse_(log,index+2,saved),{eventTitle:c.event.title});
+}
