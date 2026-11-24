@@ -1,7 +1,7 @@
 // Verify the dedicated native project before replacing either maintained file.
 // This guard logs hashes only; it never exports native source or credentials.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),cp=require('node:child_process');
-const dir=process.argv[2],base='beeb0bfb8dbc7ce3476a6cc504963d6dca55509e';
+const dir=process.argv[2],base='cb3878758f91b74752836307db15f7e78d2fd0da';
 const normalize=s=>s.replace(/\r\n/g,'\n').trim();
 const hash=s=>crypto.createHash('sha256').update(normalize(s)).digest('hex');
 const old=file=>cp.execFileSync('git',['show',base+':'+file],{encoding:'utf8'});
