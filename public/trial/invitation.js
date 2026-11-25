@@ -24,6 +24,7 @@ window.showPersonalTrialPayment=function(data){
  }else if(!cash&&!data.paid&&!data.needs_review){note.textContent+=' הקישור לתשלום אינו זמין כרגע. פנו אלינו להשלמת הטיפול.';}
 };
 if(window.trialInviteToken){
+ const releaseLoading=window.FormLoading?window.FormLoading.hold():()=>{};
  const f=document.getElementById('trial-form'),msg=document.getElementById('message');
  f.hidden=true;msg.textContent='טוענים את תנאי הניסיון האישיים…';
  const priceNote=f.querySelector('.note');priceNote.textContent='טוענים את המחיר שסוכם…';
@@ -46,5 +47,5 @@ if(window.trialInviteToken){
    msg.textContent=cash?'הפרטים שהשארתם כבר מופיעים כאן. אשרו אותם; התשלום שסוכם יתבצע במזומן מול המרכז.':'הפרטים שהשארתם כבר מופיעים כאן. בדקו אותם ואשרו להמשך לתשלום; אין צורך למלא טופס נוסף.';
   }else msg.textContent='';
   f.hidden=false;
- }).catch(()=>{msg.textContent='הקישור אינו זמין או שפג תוקפו. פנו אלינו לקבלת קישור אישי חדש. לא בוצע חיוב.';f.hidden=true});
+ }).catch(()=>{msg.textContent='הקישור אינו זמין או שפג תוקפו. פנו אלינו לקבלת קישור אישי חדש. לא בוצע חיוב.';f.hidden=true}).finally(releaseLoading);
 }

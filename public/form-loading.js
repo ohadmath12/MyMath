@@ -1,34 +1,36 @@
-/* Brief branded introduction; a hard fallback prevents a stalled overlay. */
+/* Loading presentation only. No artificial minimum and no payment/form mutations. */
 (() => {
   const root = document.documentElement;
-  const started = performance.now();
-  const minimumMs = 1500;
-  root.classList.add('form-loading');
-  let finished = false;
-  let revealTimer;
-  let closing = false;
-  let closeTimer;
-  const finish = () => {
-    if (finished) return;
+  const embedded = window.parent !== window && new URLSearchParams(location.search).get('family_embed') === '1';
+  let finished = embedded, domReady = false, holds = 0, closing = false;
+  let fallback, closeTimer;
+  function finish() {
     finished = true;
+    clearTimeout(fallback); clearTimeout(closeTimer);
     root.classList.remove('form-loading', 'form-loading-complete');
     document.getElementById('form-loading-screen')?.remove();
-    clearTimeout(timeout);
-    clearTimeout(revealTimer);
-    clearTimeout(closeTimer);
-  };
-  const complete = () => {
-    if (finished || closing) return;
+  }
+  function ready() {
+    if (finished || closing || !domReady || holds) return;
     closing = true;
     root.classList.add('form-loading-complete');
-    closeTimer = setTimeout(finish, 450);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) finish();
+    else closeTimer = setTimeout(finish, 180);
+  }
+  window.FormLoading = {
+    hold() {
+      if (finished || closing) return () => {};
+      holds++;
+      let released = false;
+      return () => { if (!released) { released = true; holds--; ready(); } };
+    }
   };
-  const ready = () => {
-    if (finished || revealTimer !== undefined) return;
-    revealTimer = setTimeout(complete, Math.max(0, minimumMs - (performance.now() - started)));
-  };
-  const timeout = setTimeout(complete, 6000);
-  document.addEventListener('form-step-shown', ready, { once: true });
-  document.addEventListener('DOMContentLoaded', ready, { once: true });
-  window.addEventListener('pageshow', event => event.persisted ? finish() : ready(), { once: true });
+  function documentReady() { domReady = true; if (embedded) finish(); else ready(); }
+  if (!embedded) {
+    root.classList.add('form-loading');
+    fallback = setTimeout(finish, 6000); // A failed dependency must never strand the overlay.
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', documentReady, {once:true});
+  else documentReady();
+  window.addEventListener('pageshow', e => { if (e.persisted) finish(); });
 })();

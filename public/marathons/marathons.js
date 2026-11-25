@@ -51,6 +51,7 @@ if(isReturning){
  var contextHeading=document.createElement('h2'),contextDetails=document.createElement('p'),contextStatus=document.createElement('p'),refresh=document.createElement('button');refresh.type='button';refresh.textContent='בדיקת מצב ההרשמה';contextPanel.append(contextHeading,contextDetails,contextStatus,refresh);
  function setField(id,value,locked){var field=document.getElementById(id);if(!field)return;field.value=value;if(locked){if(field.tagName==='SELECT')field.disabled=true;else field.readOnly=true;}}
  function loadReturning(){
+  var releaseLoading=window.FormLoading?window.FormLoading.hold():function(){};
   contextLoading=true;form.hidden=true;success.hidden=true;var oldLink=document.getElementById('payment-link');oldLink.hidden=true;oldLink.removeAttribute('href');refresh.disabled=true;contextStatus.textContent='בודקים את פרטי ההזמנה…';updateButton();
   submit({operation:'marathon_returning_context',invitation_token:invitationToken}).then(function(body){
    var c=body.context;if(c&&c.legacy===true){isReturning=false;contextPanel.hidden=true;form.hidden=false;return;}if(!c||!c.event||!c.student)throw Error('לא ניתן לאמת את ההזמנה כרגע.');returningContext=c;registrationEventId=c.event.id;
@@ -64,7 +65,7 @@ if(isReturning){
    contextStatus.textContent=messages[c.payment_status]||messages.review;form.hidden=!c.can_submit;
    if(c.can_resume){return submit({operation:'marathon_returning_resume',invitation_token:invitationToken}).then(function(result){showPayment(result);success.hidden=false;});}
    success.hidden=true;
-  }).catch(function(e){returningContext=null;form.hidden=true;contextStatus.textContent=e.message||'לא ניתן לאמת את ההזמנה כרגע. נסו לבדוק שוב.';}).finally(function(){contextLoading=false;refresh.disabled=false;updateButton();});
+  }).catch(function(e){returningContext=null;form.hidden=true;contextStatus.textContent=e.message||'לא ניתן לאמת את ההזמנה כרגע. נסו לבדוק שוב.';}).finally(function(){contextLoading=false;refresh.disabled=false;updateButton();releaseLoading();});
  }
  refresh.addEventListener('click',loadReturning);loadReturning();
 }

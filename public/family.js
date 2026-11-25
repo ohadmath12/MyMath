@@ -20,6 +20,7 @@
  complete.addEventListener('click',async function(){if(finishing||checkoutReceipts.some(function(v,i){return !v&&!saved[i];}))return;finishing=true;complete.disabled=true;var payWindow=window.open('about:blank','mythematix-payment');if(payWindow)payWindow.opener=null;try{var r=await window.CheckoutFlow.api('family-checkout',{family_token:token,checkout_tokens:checkoutReceipts.filter(Boolean)});window.CheckoutFlow.start(checkoutReceipts.filter(Boolean),r.payment_url);if(payWindow&&r.payment_url)payWindow.location.href=r.payment_url;else if(payWindow)payWindow.close();}catch(e){if(payWindow)payWindow.close();finishing=false;complete.disabled=false;status.textContent='לא הצלחנו להכין את המעבר לתשלום. הפרטים שמורים; נסו שוב.';}});
 
  var config=window.ENROLLMENT_PAYMENT_CONFIG;
+ var releaseLoading=window.FormLoading?window.FormLoading.hold():function(){};
  fetch(config.url+'/rest/v1/rpc/family_registration_public',{method:'POST',headers:{'Content-Type':'application/json',apikey:config.key},body:JSON.stringify({token:token})}).then(function(r){if(!r.ok)throw Error();return r.json();}).then(async function(r){
   if(!r.ok||!Array.isArray(r.children)||r.children.length!==2||r.monthly_agorot!==120000||!Number.isInteger(r.initial_agorot)||r.initial_agorot<=0||!/^https:\/\/pay\.grow\.link\/[A-Za-z0-9_~%./?=&+-]+$/.test(r.payment_url)||!/^\d{4}-\d{2}-10$/.test(r.recurring_starts_on)||r.children.some(function(c){return typeof c.name!=='string'||! /^[a-f0-9]{64}$/.test(c.token)||!Number.isInteger(c.lessons)||c.lessons<1;})||r.children.reduce(function(n,c){return n+c.lessons*15000},0)!==r.initial_agorot)throw Error();
   data=r;saved=r.children.map(function(c){return c.completed===true;});drafts=saved.slice();
@@ -34,5 +35,5 @@
   if(resume.checkouts.length&&resume.checkouts.every(function(c){return c.armed;})&&data.children.every(function(c,i){return saved[i]||!!checkoutReceipts[i];})){window.CheckoutFlow.start(resume.checkouts,resume.checkouts[0].payment_url);return;}
   if(resume.complete_set&&resume.checkouts.every(function(c){return c.armed;})){window.CheckoutFlow.start(resume.checkouts,resume.checkouts[0].payment_url);return;}
   show();
- }).catch(function(){status.textContent='לא ניתן לטעון את ההרשמה המשפחתית. הקישור עשוי לפוג או להשתנות; פנו למרכז לפני מילוי או תשלום.';});
+ }).catch(function(){status.textContent='לא ניתן לטעון את ההרשמה המשפחתית. הקישור עשוי לפוג או להשתנות; פנו למרכז לפני מילוי או תשלום.';}).finally(releaseLoading);
 })();
