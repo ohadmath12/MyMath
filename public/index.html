@@ -21,7 +21,7 @@
 
 <link rel="preload" as="image" href="./assets/logo.png">
 <link rel="stylesheet" href="./form-loading.css?v=20261111-complete">
-<script src="./form-loading.js?v=20261111-complete"></script>
+<script src="./parent-name-fields.js?v=20261125-split" defer></script><script src="./form-loading.js?v=20261111-complete"></script>
 <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./forms.css?v=20261119-family-3">
 <link rel="stylesheet" href="./enrollment-payment.css?v=20261120-unified">
@@ -389,11 +389,7 @@
                 </div>
                 <div class="field-error" id="err-parent_role"></div>
               </div>
-              <div class="field">
-                <label for="parent_name">שם ההורה<span class="required-mark">*</span></label>
-                <input type="text" id="parent_name" name="parent_name" required maxlength="80" autocomplete="name">
-                <div class="field-error" id="err-parent_name"></div>
-              </div>
+              <div class="field-grid" data-parent-name-fields><label for="parent_first_name">שם פרטי של ההורה *<input id="parent_first_name" name="parent_first_name" required maxlength="60" autocomplete="given-name"></label><label for="parent_last_name">שם משפחה של ההורה *<input id="parent_last_name" name="parent_last_name" required maxlength="60" autocomplete="family-name"></label><input type="hidden" id="parent_name" name="parent_name"><input type="hidden" name="parent_name_version" value="2"></div>
               <div class="field">
                 <label for="parent_phone">טלפון נייד של ההורה<span class="required-mark">*</span></label>
                 <input type="tel" id="parent_phone" name="parent_phone" required maxlength="20" inputmode="tel" autocomplete="tel" placeholder="05X-XXXXXXX">
@@ -459,7 +455,7 @@
 <script src="./grow-confirmation.js?v=20261120-unified" defer></script>
 <script src="./checkout-flow.js?v=20261120-unified" defer></script>
 <script src="./enrollment-payment.js?v=20261122-recurring-copy" defer></script>
-<script src="./app.js?v=20261120-unified" defer></script>
+<script src="./app.js?v=20261125-parent-names" defer></script>
 <script src="./form-steps.js?v=20261120-unified" defer></script>
 </body>
 </html>
