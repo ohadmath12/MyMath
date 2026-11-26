@@ -7,7 +7,12 @@ function checkoutRpc_(name,body){
 function checkoutHash_(s){return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,s).map(function(b){return ('0'+((b+256)%256).toString(16)).slice(-2);}).join('');}
 function checkoutSheet_(){var book=SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID'));var s=book.getSheetByName('PendingCheckouts');if(!s){s=book.insertSheet('PendingCheckouts');s.appendRow(CHECKOUT_HEADERS_);s.setFrozenRows(1);}else if(!s.getRange(1,CHECKOUT_HEADERS_.length).getValues()[0][0])s.getRange(1,CHECKOUT_HEADERS_.length).setValue(CHECKOUT_HEADERS_[CHECKOUT_HEADERS_.length-1]);return s;}
 function checkoutRows_(s){return s.getLastRow()<2?[]:s.getRange(2,1,s.getLastRow()-1,CHECKOUT_HEADERS_.length).getValues();}
-function checkoutTerms_(terms){var out={};['initial_agorot','monthly_agorot','monthly_method','service_month','payment_flow','payment_url','recurring_starts_on','family_enrollment','new_siblings','family_url'].forEach(function(k){out[k]=terms[k]===undefined?null:terms[k];});out.unpaid_trial_agorot=terms.unpaid_trial_agorot==null?0:terms.unpaid_trial_agorot;return JSON.stringify(out);}
+function checkoutDeferred_(terms){
+ if(!terms||terms.deferred_recurring_start==null||terms.deferred_recurring_start===false)return false;
+ if(terms.deferred_recurring_start!==true||terms.initial_agorot!==0||terms.monthly_method!=='recurring'||terms.payment_flow!=='separate'||!Number.isInteger(terms.monthly_agorot)||terms.monthly_agorot<=0||!/^\d{4}-\d{2}-10$/.test(terms.recurring_starts_on||'')||terms.payment_url||terms.new_siblings||terms.family_enrollment)throw Error('invalid_deferred_terms');
+ return true;
+}
+function checkoutTerms_(terms){var out={};['initial_agorot','monthly_agorot','monthly_method','service_month','payment_flow','payment_url','recurring_starts_on','family_enrollment','new_siblings','family_url'].forEach(function(k){out[k]=terms[k]===undefined?null:terms[k];});out.unpaid_trial_agorot=terms.unpaid_trial_agorot==null?0:terms.unpaid_trial_agorot;if(checkoutDeferred_(terms))out.deferred_recurring_start=true;return JSON.stringify(out);}
 function enableUnifiedCheckout(){
  var triggers=ScriptApp.getProjectTriggers();if(!triggers.some(function(t){return t.getHandlerFunction()==='processPendingCheckouts';}))ScriptApp.newTrigger('processPendingCheckouts').timeBased().everyMinutes(1).create();
  checkoutSheet_();PropertiesService.getScriptProperties().setProperty('UNIFIED_CHECKOUT_ENABLED','true');return {ok:true};
@@ -46,7 +51,8 @@ function armFamilyCheckout_(p){
 }
 function checkoutStatus_(p){
  var f=checkoutFind_(p.checkout_token),v=f.values;
- return {ok:true,state:v[4],registrationId:v[4]==='completed'?String(v[5]):null,payment_confirmed:v[10]===true};
+ var draft=JSON.parse(DriveApp.getFileById(v[3]).getBlob().getDataAsString()),deferred=checkoutDeferred_(JSON.parse(draft.terms));
+ return {ok:true,state:v[4],registrationId:v[4]==='completed'?String(v[5]):null,payment_confirmed:v[10]===true,no_payment_required:deferred,deferred_recurring_start:deferred};
 }
 function processPendingCheckouts(){
  checkoutReady_();var s=checkoutSheet_(),rows=checkoutRows_(s),now=Date.now(),processed=0;
@@ -68,6 +74,7 @@ function checkoutProcessRow_(row){
   var status=checkoutRpc_('registration_grow_status',{kind:d.kind,token:d.token,refresh:true});
   if(status.state==='checking'){Utilities.sleep(2000);status=checkoutRpc_('registration_grow_status',{kind:d.kind,token:d.token,refresh:false});}
   if(!status.can_complete)return;
+  if(checkoutDeferred_(t.terms)&&!(status.paid===false&&status.state==='no_payment_required'&&status.no_payment_required===true&&status.deferred_recurring_start===true))throw Error('deferred_status_required');
   s.getRange(row,11).setValue(status.paid===true);
   s.getRange(row,5).setValue(status.paid===true?'paid':'pending');
   var result=saveRegistration(d.payload);if(!result.ok||!result.registrationId)throw Error('save_failed');
