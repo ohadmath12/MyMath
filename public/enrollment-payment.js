@@ -10,6 +10,12 @@
   function render(target, paymentButton) {
     target.textContent = '';
     if (paymentButton && verified) { var confirmation=document.createElement('p'); confirmation.textContent='קבלת התשלום אושרה על ידי המרכז. אין צורך לשלם שוב.'; target.appendChild(confirmation); return; }
+    if(terms.deferred_recurring_start===true){
+      var title=document.createElement('h3');title.textContent='יתרת חודש — 0 ₪';target.appendChild(title);
+      var note=document.createElement('p');note.textContent='אין תשלום במעמד ההרשמה. מחיר חודשי להמשך — '+(terms.monthly_agorot/100).toLocaleString('he-IL')+' ₪, החל מ־'+terms.recurring_starts_on.split('-').reverse().join('/')+'. קישור אישי יישלח במועד החיוב.';target.appendChild(note);
+      if(terms.unpaid_trial_agorot>0){var trial=document.createElement('p');trial.textContent='שיעור ניסיון שטרם שולם — '+(terms.unpaid_trial_agorot/100).toLocaleString('he-IL')+' ₪, בנפרד מההרשמה.';target.appendChild(trial);}
+      return;
+    }
     var family = terms.family_enrollment === true;
     var recurringInitial = terms.monthly_method === 'recurring' && terms.payment_flow === 'recurring_initial';
     if (!paymentButton && !family && !terms.new_siblings) {
@@ -69,6 +75,7 @@
     }
   }
   window.EnrollmentPayment = {
+    isDeferred: function(){return ready&&terms&&terms.deferred_recurring_start===true;},
     init: function (kind, token) {
       if (!token) { var unavailable=document.querySelector('form'); if(unavailable){unavailable.hidden=true;unavailable.insertAdjacentHTML('beforebegin','<p>להרשמה לתוכנית נדרש קישור אישי מהמרכז. התשלום מופיע בשלב האחרון של ההרשמה.</p>');} return; }
       ready = false;
@@ -88,6 +95,7 @@
           if (!r.ok) throw Error('invalid_link');
           terms = r.terms; verified = r.payment_verified === true;
           if (terms && (!Number.isInteger(terms.initial_agorot) || terms.initial_agorot<0 || !/^\d{4}-\d{2}-01$/.test(terms.service_month) || ['cash','recurring'].indexOf(terms.monthly_method)<0 || (terms.monthly_method==='recurring'&&terms.initial_agorot>0&&!safeLink(terms.payment_url)))) throw Error('invalid_terms');
+          if(terms&&terms.deferred_recurring_start!==undefined&&(terms.deferred_recurring_start!==true||terms.initial_agorot!==0||terms.monthly_method!=='recurring'||terms.payment_flow!=='separate'||!Number.isInteger(terms.monthly_agorot)||terms.monthly_agorot<=0||!/^\d{4}-\d{2}-10$/.test(terms.recurring_starts_on||'')||terms.payment_url||terms.family_enrollment||terms.new_siblings))throw Error('invalid_deferred_terms');
           if (kind === 'trial' && r.prefill) {
             ['parent_name','parent_phone','student_first_name','student_last_name','class_name','school_name'].forEach(function(key){
               var field = document.getElementById(key), value = r.prefill[key];
@@ -105,8 +113,8 @@
             var price = document.querySelector('.payment-price');
             if (price) price.textContent = terms.family_enrollment ? '1,200 ₪ / לחודש לשני הילדים — מהחודש הבא' : (terms.monthly_agorot/100).toLocaleString('he-IL') + ' ₪ / לחודש — המחיר שסוכם עבורכם';
           }
-          if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<1 || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
-          if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash'))) throw Error('invalid_unpaid_trial');
+          if (terms && terms.initial_lesson_agorot != null && (!Number.isInteger(terms.initial_lesson_agorot) || terms.initial_lesson_agorot<=0 || !Number.isInteger(terms.initial_lesson_count) || terms.initial_lesson_count<(terms.deferred_recurring_start===true?0:1) || terms.initial_lesson_agorot*terms.initial_lesson_count!==terms.initial_agorot)) throw Error('invalid_breakdown');
+          if (terms && terms.unpaid_trial_agorot != null && (!Number.isInteger(terms.unpaid_trial_agorot) || terms.unpaid_trial_agorot < 0 || terms.unpaid_trial_agorot > 10000000 || (terms.unpaid_trial_agorot > 0 && terms.monthly_method !== 'cash' && terms.deferred_recurring_start!==true))) throw Error('invalid_unpaid_trial');
           if (terms && terms.new_siblings && (terms.new_siblings !== true || terms.monthly_agorot !== 120000 || terms.payment_flow !== 'recurring_initial' || !/^https:\/\/ohadmath12\.github\.io\/MyMath\/family\.html#family=[a-f0-9]{64}$/.test(terms.family_url || ''))) throw Error('invalid_family_terms');
           var programPayment=document.getElementById('payment');if(programPayment)programPayment.hidden=true;
           ready = true;
@@ -120,7 +128,7 @@
           }
           if(!resuming&&!embedded){box.querySelectorAll('p').forEach(function(p){p.textContent=p.textContent.replace(/לאחר התשלום הראשון המרכז יעדכן את הוראת הקבע למועד זה ולמחיר החודשי שסוכם\./,'').replace(/לאחריו המרכז יעדכן את הסכום והתאריך לחיובים הבאים כפי שסוכם לעיל\./,'');});}
           if (!embedded) {
-            var submitButton=document.getElementById('submit-btn');if(submitButton)submitButton.disabled=false;var label=document.getElementById('submit-btn-label');if(label&&terms.monthly_method==='cash')label.textContent='אישור והשלמת ההרשמה';
+            var submitButton=document.getElementById('submit-btn');if(submitButton)submitButton.disabled=false;var label=document.getElementById('submit-btn-label');if(label&&(terms.monthly_method==='cash'||terms.deferred_recurring_start===true))label.textContent='אישור והשלמת ההרשמה';
           }
           if (!resuming) { form.hidden=false;form.inert=false; }
           if(!embedded&&!resuming&&window.CheckoutFlow)window.CheckoutFlow.resume(kind,token);

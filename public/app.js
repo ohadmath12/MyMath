@@ -473,7 +473,7 @@
 
     setLoadingState(true);
 
-    var payWindow=null;if(!familyEmbedded){payWindow=window.open('about:blank','mythematix-payment');if(payWindow)payWindow.opener=null;}
+    var payWindow=null;if(!familyEmbedded&&!(window.EnrollmentPayment&&window.EnrollmentPayment.isDeferred&&window.EnrollmentPayment.isDeferred())){payWindow=window.open('about:blank','mythematix-payment');if(payWindow)payWindow.opener=null;}
     fetch(ENDPOINT.replace(/\/api\/register$/,'/api/checkout'), {
       method: 'POST',
       // text/plain keeps the GitHub Pages request CORS-simple; the Worker still
